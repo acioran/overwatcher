@@ -26,7 +26,7 @@ class Overwatcher():
         """
         Used to set the various self.opt_*** flags and the self.options callbacks.
         """
-        raise NotImplementedError("PLEASE IMPLEMENT THIS IN CHILD CLASSES!")
+        return
 
     def setup_config(self):
         """
@@ -37,7 +37,7 @@ class Overwatcher():
         
         NOTE: this function should block until everything is set up!
         """
-        raise NotImplementedError("PLEASE IMPLEMENT THIS IN CHILD CLASSES!")
+        return
 
     """
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
@@ -69,8 +69,8 @@ class Overwatcher():
             self.queue_state.task_done()
 
     def setup_test_defaults(self):
-        self.name = "DEFAULT"
-        self.timeout = 300
+        self.name = type(self).__name__
+        self.timeout = 300 #seconds
 
         self.correct_seq = []
         self.actions = {}
@@ -89,10 +89,20 @@ class Overwatcher():
                 "TRIGGER_STOP"  : self.d_RunTriggers
                 }
 
-    def start_test(self):
+    def __init__(self, server='169.168.56.254', port=23200):
+
         """
-        Starts the actual test. Moved from init because it was called twice in children
+        Class init. KISS 
         """
+        self.server = server
+        self.port = port
+
+        self.queue_state = queue.Queue() 
+        self.queue_result = queue.Queue()
+
+        self.queue_serread = queue.Queue()
+        self.queue_serwrite = queue.Queue()
+
         #Start with defaults
         self.setup_test_defaults()
         self.setup_option_defaults()
@@ -145,26 +155,14 @@ class Overwatcher():
         return
 
 
-    def __init__(self, server='169.168.56.254', port=23200):
-
-        """
-        Class init. KISS 
-        """
-        self.server = server
-        self.port = port
-
-        self.queue_state = queue.Queue() 
-        self.queue_result = queue.Queue()
-
-        self.queue_serread = queue.Queue()
-        self.queue_serwrite = queue.Queue()
-
     """
     -------------------------THREADS
     """
     def thread_SerialRead(self):
         """
         Receiver thread. Parses serial out and forms things in sentences.
+
+        TODO: re-write this. Very old code and it can be done way better 
         """
         ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ser_sock.connect((self.server, self.port))
@@ -176,23 +174,25 @@ class Overwatcher():
                 x = ser_sock.recv(1)
             except socket.timeout:
                 x = b'\n'
-            cmd = ""
+            serout = ""
             while((x != b'\n') and (x != b'\r') and (self.run["recv"] is True)):
                 if(x != b'\n') and (x != b'\r'):
                     try:
-                        cmd += x.decode('ascii')
+                        serout += x.decode('ascii')
                         if(x == b'>') or (x == b'#') or (x == b'\b'):
                             break
                     except UnicodeDecodeError:
                         pass
+                #Why do the timeout: the login screen displays "User:" and no endline.
+                #How do you know that the device is waiting for something in this case?
                 try:
                     x = ser_sock.recv(1)
                 except socket.timeout:
                     x = b'\n'
 
-            cmd = cmd.strip()
-            self.queue_serread.put(cmd)
-            self.logNoPrint(cmd)
+            serout = serout.strip()
+            self.queue_serread.put(serout)
+            self.logNoPrint(serout)
 
         ser_sock.close()
 
