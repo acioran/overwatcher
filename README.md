@@ -1,2 +1,7 @@
 # overwatcher
-Lightweight automated testing framework. EXPERIMENTAL: only tested on a serial connection for now.
+Lightweight automated testing framework. 
+
+**WARNING! EXPERIMENTAL**
+-only a quick prototype, no design work.
+-some features might change in the future.
+-only tested on a serial connection for now.
