@@ -14,6 +14,15 @@ class Overwatcher():
     """
     -------------------------FUNCTIONS THAT NEED TO BE OVERLOADED
     """
+    def setup_config(self):
+        """
+        Function used to setup the device before the test.
+
+        Can be used to clean-up the setup test if the config is more complicated.
+        Otherwise, everything can be set in the setup_test function
+        """
+        return
+
     def setup_test(self):
         """
         Function used to setup all test configurations. 
@@ -25,17 +34,6 @@ class Overwatcher():
     def setup_options(self):
         """
         Used to set the various self.opt_*** flags and the self.options callbacks.
-        """
-        return
-
-    def setup_config(self):
-        """
-        Commands to be run on the device before starting the test. Use "sendDeviceCmd" to
-        send comands to the device and "getDeviceState" to see in which state it is.
-
-        The actual test does not monitor the config...make sure nothing freezes here.
-        
-        NOTE: this function should block until everything is set up!
         """
         return
 
@@ -58,15 +56,14 @@ class Overwatcher():
         """
         General device configuration
         """
-        self.log("STARTED CONFIG!") 
+        self.log("\n\/ \/ \/ \/ STARTED CONFIG!\/ \/ \/ \/\n") 
 
-        self.setup_config()
+        last_state = self.onetime_ConfigureDevice()
+        
+        #Make sure the last state is passed to the test
+        self.updateDeviceState(last_state)
 
-        self.log("ENDED CONFIG!") 
-        #Start clean for test
-        while self.queue_state.empty() is False:
-            self.queue_state.get()
-            self.queue_state.task_done()
+        self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
     def setup_test_defaults(self):
         self.name = type(self).__name__
@@ -109,6 +106,7 @@ class Overwatcher():
 
         #Load the user setup
         self.setup_test()
+        self.setup_config()
 
         #Open the log file and print everything
         self.file_test = open(self.name + "_testresults.log", "w", buffering=1)
@@ -153,7 +151,49 @@ class Overwatcher():
             print(result)
 
         return
+    """
+    -------------------------DEVICE CONFIGURATION
+    """
+    def onetime_ConfigureDevice(self):
+        conf_len = len(self.config_seq)
+        #Quick detour
+        if conf_len == 0:
+            return
 
+        conf_idx = 0
+        conf_timer = None
+
+        while(conf_idx < conf_len):
+            #Start a timer
+            if conf_timer is not None:
+                conf_timer.cancel()
+            conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
+            conf_timer.start()
+
+            #Look for the state
+            req_state = self.config_seq[conf_idx]
+
+            #
+            ##  See if we need to run some actions
+            ###
+            try:
+                self.log("RUNNING ACTIONS:", req_state, "=", self.actions[req_state])
+                for elem in self.actions[req_state]:
+                    self.sendDeviceCmd(elem)
+                conf_idx += 1
+                continue
+            except KeyError:
+                pass
+
+            self.log("Looking for:", self.correct_seq[conf_idx]) #idx might change
+            current_state = self.getDeviceState()
+
+            # If the required state is found 
+            if req_state == current_state:
+                self.log("MOVED TO STATE=", req_state)
+                conf_idx += 1
+
+        return current_state
 
     """
     -------------------------THREADS
@@ -317,7 +357,7 @@ class Overwatcher():
                 self.log("IGNORED STATE", current_state)
                 continue
 
-            # If the required state is found and we didn't already process it
+            # If the required state is found 
             if required_state == current_state:
                 self.log("MOVED TO STATE=", required_state)
                 test_idx += 1
@@ -332,7 +372,7 @@ class Overwatcher():
                 except UnboundLocalError:
                     wait_for_state = None
             # State changed and it isn't what we expect
-            elif required_state != current_state:
+            else: 
                 self.log("FOUND=", current_state, ", BUT WAS LOOKING FOR:", required_state)
                 self.mytest_failed()
 
