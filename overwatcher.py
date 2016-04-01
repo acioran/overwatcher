@@ -69,10 +69,15 @@ class Overwatcher():
         self.name = type(self).__name__
         self.timeout = 300 #seconds
 
-        self.correct_seq = []
+        self.config_seq = []
+        self.test_seq = []
+
         self.actions = {}
         self.triggers = {}
+
         self.markers = {}
+        self.markers_cfg = {}
+
         self.user_inp = {}
 
     def setup_option_defaults(self):
@@ -128,11 +133,18 @@ class Overwatcher():
         self.th["state_watcher"] = threading.Thread(target=self.thread_StateWatcher, daemon=True)
         self.th["state_watcher"].start()
 
+        #For the config phase also use the cfg only markers
+        self.statewather_markers = dict(self.markers_cfg)
+        self.statewather_markers.update(self.markers)
+
         #Configure the device
         self.config_device()
 
         #Set any user options
         self.setup_options()
+
+        #For the normal run, revert back to the normal markers
+        self.statewather_markers = dict(self.markers)
 
         #Start the TEST thread
         self.run["test"] = True
@@ -185,7 +197,7 @@ class Overwatcher():
             except KeyError:
                 pass
 
-            self.log("Looking for:", self.correct_seq[conf_idx]) #idx might change
+            self.log("Looking for:", self.test_seq[conf_idx]) #idx might change
             current_state = self.getDeviceState()
 
             # If the required state is found 
@@ -253,7 +265,7 @@ class Overwatcher():
             time.sleep(0.25)
         
 
-    def thread_StateWatcher(self):
+    def thread_StateWatcher(self): 
         """
         STATE WATCHER: looks for the current state of the device
         """
@@ -265,9 +277,9 @@ class Overwatcher():
             if serout == "":
                 continue
 
-            for marker in self.markers:
+            for marker in self.statewather_markers:
                 if marker in serout:
-                    current_state = self.markers[marker]
+                    current_state = self.statewather_markers[marker]
 
                     self.log("FOUND", current_state, "state in", serout)
 
@@ -296,12 +308,12 @@ class Overwatcher():
         """
         ACTUAL TEST thread. Looks for states and executes stuff.
         """
-        test_len = len(self.correct_seq)
+        test_len = len(self.test_seq)
         test_idx = 0
         wait_for_state = None
 
         while((test_idx < test_len) and (self.run["test"] is True)):
-            required_state = self.correct_seq[test_idx]
+            required_state = self.test_seq[test_idx]
 
             #
             ##  See if we need to wait for some user input
@@ -350,7 +362,7 @@ class Overwatcher():
             except KeyError:
                 pass
 
-            self.log("Looking for:", self.correct_seq[test_idx]) #idx might change
+            self.log("Looking for:", self.test_seq[test_idx]) #idx might change
             current_state = self.getDeviceState()
 
             if self.opt_IgnoreStates is True:
@@ -482,10 +494,14 @@ class Overwatcher():
 
         self.file_test.write("MARKERS:\n")
         self.file_test.write(str(self.markers) + "\n")
+        self.file_test.write("MARKERS CFG:\n")
+        self.file_test.write(str(self.markers_cfg) + "\n")
         self.file_test.write("TRIGGERS:\n")
         self.file_test.write(str(self.triggers) + "\n")
-        self.file_test.write("CORRECT SEQ:\n")
-        self.file_test.write(str(self.correct_seq) + "\n")
+        self.file_test.write("CONF SEQ:\n")
+        self.file_test.write(str(self.config_seq) + "\n")
+        self.file_test.write("TEST SEQ:\n")
+        self.file_test.write(str(self.test_seq) + "\n")
         self.file_test.write("USER_INP\n")
         self.file_test.write(str(self.user_inp) + "\n")
         self.file_test.write("ACTIONS:\n")
