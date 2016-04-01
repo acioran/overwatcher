@@ -67,7 +67,7 @@ class Overwatcher():
 
     def setup_test_defaults(self):
         self.name = type(self).__name__
-        self.timeout = 300 #seconds
+        self.timeout = 300.0 #seconds
 
         self.config_seq = []
         self.test_seq = []
@@ -121,6 +121,9 @@ class Overwatcher():
         self.run = {}
         self.th = {}
 
+        th_ResultWatcher = threading.Thread(target=self.thread_ResultWatcher, daemon=True)
+        th_ResultWatcher.start()
+
         self.run["recv"] = True #receiver loop - used to get out of large commands
         self.th["recv"] = threading.Thread(target=self.thread_SerialRead, daemon=True)
         self.th["recv"].start()
@@ -146,23 +149,15 @@ class Overwatcher():
         #For the normal run, revert back to the normal markers
         self.statewather_markers = dict(self.markers)
 
+        #See if the config failed
+        if th_ResultWatcher.isAlive() is False:
+            return
+    
         #Start the TEST thread
         self.run["test"] = True
         self.th["test"] = threading.Thread(target=self.thread_MyTest, daemon=True)
         self.th["test"].start()
 
-        #Block until we get a result 
-        result = self.getResult() 
-        self.log("\n\nGOT RESULT=", result)
-
-        #Clean and exit
-        self.cleanAll()
-        if "FAILED" not in result:
-            print("TEST ok :)")
-        else:
-            print(result)
-
-        return
     """
     -------------------------DEVICE CONFIGURATION
     """
@@ -173,12 +168,11 @@ class Overwatcher():
             return
 
         conf_idx = 0
-        conf_timer = None
+        conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
+        conf_timer.start()
 
         while(conf_idx < conf_len):
-            #Start a timer
-            if conf_timer is not None:
-                conf_timer.cancel()
+            conf_timer.cancel()
             conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
             conf_timer.start()
 
@@ -199,6 +193,8 @@ class Overwatcher():
 
             self.log("Looking for:", self.test_seq[conf_idx]) #idx might change
             current_state = self.getDeviceState()
+            if current_state == "":
+                break
 
             # If the required state is found 
             if req_state == current_state:
@@ -210,6 +206,18 @@ class Overwatcher():
     """
     -------------------------THREADS
     """
+    def thread_ResultWatcher(self):
+        #Block until we get a result 
+        result = self.getResult() 
+        self.log("\n\nGOT RESULT=", result)
+
+        #Clean and exit
+        self.cleanAll()
+        if "FAILED" not in result:
+            print("TEST ok :)")
+        else:
+            print(result)
+
     def thread_SerialRead(self):
         """
         Receiver thread. Parses serial out and forms things in sentences.
