@@ -4,6 +4,8 @@ import datetime
 import queue
 import threading
 
+from PYLIB.config import Config
+
 class Overwatcher():
     """
 
@@ -23,7 +25,7 @@ class Overwatcher():
         """
         return
 
-    def setup_test(self):
+    def setup_test(self, cfg):
         """
         Function used to setup all test configurations. 
 
@@ -57,6 +59,8 @@ class Overwatcher():
         General device configuration
         """
         self.log("\n\/ \/ \/ \/ STARTED CONFIG!\/ \/ \/ \/\n") 
+        
+        self.sendDeviceCmd("\r\n")
 
         last_state = self.onetime_ConfigureDevice()
         
@@ -91,7 +95,7 @@ class Overwatcher():
                 "TRIGGER_STOP"  : self.d_RunTriggers
                 }
 
-    def __init__(self, server='169.168.56.254', port=23200):
+    def __init__(self, my_vars=None, server='169.168.56.254', port=23200):
 
         """
         Class init. KISS 
@@ -110,7 +114,7 @@ class Overwatcher():
         self.setup_option_defaults()
 
         #Load the user setup
-        self.setup_test()
+        self.setup_test(my_vars)
         self.setup_config()
 
         #Open the log file and print everything
@@ -137,8 +141,8 @@ class Overwatcher():
         self.th["state_watcher"].start()
 
         #For the config phase also use the cfg only markers
-        self.statewather_markers = dict(self.markers_cfg)
-        self.statewather_markers.update(self.markers)
+        self.statewatcher_markers = dict(self.markers_cfg)
+        self.statewatcher_markers.update(self.markers)
 
         #Configure the device
         self.config_device()
@@ -147,16 +151,22 @@ class Overwatcher():
         self.setup_options()
 
         #For the normal run, revert back to the normal markers
-        self.statewather_markers = dict(self.markers)
+        self.statewatcher_markers = dict(self.markers)
 
         #See if the config failed
         if th_ResultWatcher.isAlive() is False:
+            print("CONFIGURATION FAILED! exiting....")
             return
     
         #Start the TEST thread
         self.run["test"] = True
         self.th["test"] = threading.Thread(target=self.thread_MyTest, daemon=True)
         self.th["test"].start()
+
+        while(self.run["test"] is True):
+            time.sleep(0.1)
+
+        self.cleanAll()
 
     """
     -------------------------DEVICE CONFIGURATION
@@ -172,10 +182,6 @@ class Overwatcher():
         conf_timer.start()
 
         while(conf_idx < conf_len):
-            conf_timer.cancel()
-            conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
-            conf_timer.start()
-
             #Look for the state
             req_state = self.config_seq[conf_idx]
 
@@ -201,6 +207,12 @@ class Overwatcher():
                 self.log("MOVED TO STATE=", req_state)
                 conf_idx += 1
 
+            conf_timer.cancel()
+            conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
+            conf_timer.start()
+
+                
+        conf_timer.cancel()
         return current_state
 
     """
@@ -212,7 +224,6 @@ class Overwatcher():
         self.log("\n\nGOT RESULT=", result)
 
         #Clean and exit
-        self.cleanAll()
         if "FAILED" not in result:
             print("TEST ok :)")
         else:
@@ -285,9 +296,9 @@ class Overwatcher():
             if serout == "":
                 continue
 
-            for marker in self.statewather_markers:
+            for marker in self.statewatcher_markers:
                 if marker in serout:
-                    current_state = self.statewather_markers[marker]
+                    current_state = self.statewatcher_markers[marker]
 
                     self.log("FOUND", current_state, "state in", serout)
 
