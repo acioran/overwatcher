@@ -43,13 +43,13 @@ class Overwatcher():
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
     """
     def mytest_timeout(self):
-        self.setResult("TIMEOUT")
+        self.setResult("timeout")
 
     def mytest_failed(self):
-        self.setResult("SEQ FAILED!")
+        self.setResult("failed")
 
     def mytest_ok(self):
-        self.setResult("OK")
+        self.setResult("ok")
 
     """
     -------------------------INIT FUNCTIONS
@@ -94,6 +94,12 @@ class Overwatcher():
                 "TRIGGER_START" : self.e_RunTriggers,
                 "TRIGGER_STOP"  : self.d_RunTriggers
                 }
+        self.retval = {   
+                            "config failed":    3,
+                            "timeout" :         2,
+                            "failed" :          1,
+                            "ok":               0
+                      }
 
     def __init__(self, my_vars=None, server='169.168.56.254', port=23200):
 
@@ -125,9 +131,6 @@ class Overwatcher():
         self.run = {}
         self.th = {}
 
-        th_ResultWatcher = threading.Thread(target=self.thread_ResultWatcher, daemon=True)
-        th_ResultWatcher.start()
-
         self.run["recv"] = True #receiver loop - used to get out of large commands
         self.th["recv"] = threading.Thread(target=self.thread_SerialRead, daemon=True)
         self.th["recv"].start()
@@ -154,19 +157,20 @@ class Overwatcher():
         self.statewatcher_markers = dict(self.markers)
 
         #See if the config failed
-        if th_ResultWatcher.isAlive() is False:
-            print("CONFIGURATION FAILED! exiting....")
-            return
-    
+        res = self.getResult(block=False)
+        if res is not None:
+            self.cleanAll()
+            exit(res)
+
         #Start the TEST thread
         self.run["test"] = True
         self.th["test"] = threading.Thread(target=self.thread_MyTest, daemon=True)
         self.th["test"].start()
 
-        while(self.run["test"] is True):
-            time.sleep(0.1)
-
+        res = self.getResult(block=True)
         self.cleanAll()
+        exit(res)
+
 
     """
     -------------------------DEVICE CONFIGURATION
@@ -218,17 +222,6 @@ class Overwatcher():
     """
     -------------------------THREADS
     """
-    def thread_ResultWatcher(self):
-        #Block until we get a result 
-        result = self.getResult() 
-        self.log("\n\nGOT RESULT=", result)
-
-        #Clean and exit
-        if "FAILED" not in result:
-            print("TEST ok :)")
-        else:
-            print(result)
-
     def thread_SerialRead(self):
         """
         Receiver thread. Parses serial out and forms things in sentences.
@@ -281,7 +274,7 @@ class Overwatcher():
 
             ser_sock.sendall(cmd.encode())
             self.log("SENT", cmd)
-            time.sleep(0.25)
+            time.sleep(0.4)
         
 
     def thread_StateWatcher(self): 
@@ -469,26 +462,37 @@ class Overwatcher():
         """
         self.queue_state.put(state)
 
-    def getResult(self):
+    def getResult(self, block=True):
         """
         Wrapper over result queue. Blocks until data is available.
         """
-        res = self.queue_result.get(block=True)
-        self.queue_result.task_done()
-        if res is None:
-            return "FAILED"
-        else:
-            return res
+        ret = None
+        try:
+            res = self.queue_result.get(block)
+        except queue.Empty:
+            res = None
+
+        if res is not None:
+            self.queue_result.task_done()
+            self.log("GOT RESULT:", res)
+            try:
+                ret = self.retval[res]
+                self.log("RETURNING:", ret)
+            except KeyError:
+                self.log("RET VALUE UNKNOWN! Update retval option!")
+                ret = -98
+        elif block is True:
+            self.log("RESULT QUEUE FAILED! GENERIC ERROR!")
+            ret = -99
+
+        return ret
     
     def setResult(self, res):
         """
         Wrapper over result queue. Does some filtering of the final message.
         """
         try:
-            if res == "OK":
-                self.queue_result.put_nowait("OK")
-            else:
-                self.queue_result.put_nowait("FAILED" + str(res))
+            self.queue_result.put_nowait(res)
         except queue.QueueFull:
             print("FAILED TO SET RESULT")
             pass
@@ -542,6 +546,7 @@ class Overwatcher():
         self.queue_serwrite.put(None)
 
         print(self.th)
+        #NOTE: result watcher is not in list!
         for thread in self.th:
             print("Joining with", thread)
             self.th[thread].join()
