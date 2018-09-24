@@ -87,13 +87,16 @@ class Overwatcher():
     def setup_option_defaults(self):
         self.opt_RunTriggers = True
         self.opt_IgnoreStates = False
+        self.opt_RandomExec = False
 
         self.options ={  # Quick option set
                 "IGNORE_STATES" : self.e_IgnoreStates,
                 "WATCH_STATES"  : self.d_IgnoreStates,
                 "TRIGGER_START" : self.e_RunTriggers,
                 "TRIGGER_STOP"  : self.d_RunTriggers,
-                "SLEEP_RANDOM"  : self.sleepRandom
+                "SLEEP_RANDOM"  : self.sleepRandom,
+                "RANDOM_START"  : self.e_RandomExecution,
+                "RANDOM_STOP"   : self.d_RandomExecution
                 }
         self.retval = {   
                             "config failed":    3,
@@ -373,7 +376,9 @@ class Overwatcher():
             try:
                 self.log("RUNNING ACTIONS:", required_state, "=", self.actions[required_state])
                 for elem in self.actions[required_state]:
-                    self.sendDeviceCmd(elem)
+                    #Handle RANDOM actions
+                    if self.tossCoin() is True:
+                        self.sendDeviceCmd(elem)
                 test_idx += 1
                 continue
             except KeyError:
@@ -436,12 +441,25 @@ class Overwatcher():
         self.log("WATCHING STATES")
         self.opt_IgnoreStates = False
 
+    def e_RandomExecution(self):
+        self.log("RANDOM EXECUTION")
+        self.opt_RandomExec = True
+
+    def d_RandomExecution(self):
+        self.log("STOP RANDOM EXECUTION")
+        self.opt_RandomExec = False
+
     def sleepRandom(self):
         duration = random.randint(self.sleep_min, self.sleep_max)
         self.log("ZzzzZZzzzzzzZzzzz....(", duration, "seconds )....")
         time.sleep(duration)
         self.log("....WAKE UP!")
 
+    def tossCoin(self):
+        if self.opt_RandomExec is False:
+            return True
+        else:
+            return random.choice([True, False])
 
     def getDeviceOutput(self):
         """
