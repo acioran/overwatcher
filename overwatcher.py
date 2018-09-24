@@ -4,7 +4,6 @@ import datetime
 import queue
 import threading
 
-from PYLIB.config import Config
 
 class Overwatcher():
     """
@@ -63,7 +62,7 @@ class Overwatcher():
         self.sendDeviceCmd("\r\n")
 
         last_state = self.onetime_ConfigureDevice()
-        
+
         #Make sure the last state is passed to the test
         self.updateDeviceState(last_state)
 
@@ -71,7 +70,7 @@ class Overwatcher():
 
     def setup_test_defaults(self):
         self.name = type(self).__name__
-        self.timeout = 300.0 #seconds
+        self.timeout = 60.0 #seconds
 
         self.config_seq = []
         self.test_seq = []
@@ -101,13 +100,14 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, my_vars=None, server='169.168.56.254', port=23200):
+    def __init__(self, my_vars=None, server='169.168.56.254', port=23200, sendR = False):
 
         """
         Class init. KISS 
         """
         self.server = server
         self.port = port
+        self.sendendr = sendR
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -272,7 +272,12 @@ class Overwatcher():
             if cmd is None:
                 break
 
-            ser_sock.sendall(cmd.encode())
+            if self.sendendr is True:
+                cmd += "\r\n"
+            else:
+                cmd += "\n"
+
+            ser_sock.sendall(cmd.encode('ascii'))
             self.log("SENT", cmd)
             time.sleep(0.4)
         
