@@ -1,4 +1,5 @@
 import socket
+import random
 import time
 import datetime
 import queue
@@ -106,10 +107,18 @@ class Overwatcher():
         """
         Class init. KISS 
         """
+        #Connection stuff
         self.server = server
         self.port = port
         self.sendendr = sendR
+
+        #Add support for infnite running tests - this can be set in setup_test
+        #NOTE: timeout still occurs!
         self.infiniteTest = False
+
+        #Add support for random sleep amounts - this can be set in setup_test
+        self.sleep_min = 30 #seconds
+        self.sleep_max = 120 #seconds
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -428,7 +437,10 @@ class Overwatcher():
         self.opt_IgnoreStates = False
 
     def sleepRandom(self):
-        duration = randint(30,120)
+        duration = random.randint(self.sleep_min, self.sleep_max)
+        self.log("ZzzzZZzzzzzzZzzzz....(", duration, "seconds )....")
+        time.sleep(duration)
+        self.log("....WAKE UP!")
 
 
     def getDeviceOutput(self):
