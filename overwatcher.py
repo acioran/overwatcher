@@ -70,7 +70,7 @@ class Overwatcher():
 
     def setup_test_defaults(self):
         self.name = type(self).__name__
-        self.timeout = 60.0 #seconds
+        self.timeout = 300.0 #seconds
 
         self.config_seq = []
         self.test_seq = []
@@ -91,7 +91,8 @@ class Overwatcher():
                 "IGNORE_STATES" : self.e_IgnoreStates,
                 "WATCH_STATES"  : self.d_IgnoreStates,
                 "TRIGGER_START" : self.e_RunTriggers,
-                "TRIGGER_STOP"  : self.d_RunTriggers
+                "TRIGGER_STOP"  : self.d_RunTriggers,
+                "SLEEP_RANDOM"  : self.sleepRandom
                 }
         self.retval = {   
                             "config failed":    3,
@@ -108,6 +109,7 @@ class Overwatcher():
         self.server = server
         self.port = port
         self.sendendr = sendR
+        self.infiniteTest = False
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -329,7 +331,13 @@ class Overwatcher():
         test_idx = 0
         wait_for_state = None
 
-        while((test_idx < test_len) and (self.run["test"] is True)):
+        while self.run["test"] is True:
+            if test_idx == test_len:
+                if self.infiniteTest is True:
+                    test_idx = 0
+                else:
+                    break
+
             required_state = self.test_seq[test_idx]
 
             #
@@ -338,21 +346,14 @@ class Overwatcher():
             try:
                 self.log("\n\n\n", self.user_inp[required_state], "\n\n\n")
                 #NOTE: stop timer while waiting for user input
-                try:
-                    if wait_for_state is not None:
-                        wait_for_state.cancel()
-                        del wait_for_state
-                except UnboundLocalError:
-                    wait_for_state = None
-                    pass
+                wait_for_state = self.timer_stopTimer(wait_for_state)
 
                 input("EXECUTE ACTION AND PRESS ENTER")
                 print("\nCONTINUING\n")
                 test_idx += 1
 
                 #Restart timer
-                wait_for_state = threading.Timer(self.timeout, self.mytest_timeout)
-                wait_for_state.start()
+                wait_for_state = self.timer_startTimer(wait_for_state)
                 continue
             except KeyError:
                 pass
@@ -373,8 +374,16 @@ class Overwatcher():
             ##  See if we need to set any options
             ###
             try:
+                self.log("FOUND OPTION:", self.options[required_state], "in state", required_state)
+
+                #Needed for sleep option
+                wait_for_state = self.timer_stopTimer(wait_for_state)
+
                 self.options[required_state]()
                 test_idx += 1
+
+                #Restart timer
+                wait_for_state = self.timer_startTimer(wait_for_state)
                 continue
             except KeyError:
                 pass
@@ -392,14 +401,8 @@ class Overwatcher():
                 test_idx += 1
 
                 #TIMEOUT until next state
-                try:
-                    if wait_for_state is not None:
-                        wait_for_state.cancel()
-                        del wait_for_state
-                    wait_for_state = threading.Timer(self.timeout, self.mytest_timeout)
-                    wait_for_state.start()
-                except UnboundLocalError:
-                    wait_for_state = None
+                wait_for_state = self.timer_startTimer(wait_for_state)
+
             # State changed and it isn't what we expect
             else: 
                 self.log("FOUND=", current_state, ", BUT WAS LOOKING FOR:", required_state)
@@ -423,6 +426,10 @@ class Overwatcher():
     def d_IgnoreStates (self):
         self.log("WATCHING STATES")
         self.opt_IgnoreStates = False
+
+    def sleepRandom(self):
+        duration = randint(30,120)
+
 
     def getDeviceOutput(self):
         """
@@ -501,6 +508,35 @@ class Overwatcher():
         except queue.QueueFull:
             print("FAILED TO SET RESULT")
             pass
+
+    def timer_startTimer(self, timer):
+        """
+        Starts or restarts a timer using the class options (timeout and mytest_timeout)
+        """
+        try:
+            if timer is not None:
+                timer.cancel()
+                del timer
+            timer = threading.Timer(self.timeout, self.mytest_timeout)
+            timer.start()
+        except UnboundLocalError:
+            timer = None
+
+        return timer
+
+    def timer_stopTimer(self, timer):
+        """
+        Just stops a timer
+        """
+        try:
+            if timer is not None:
+                timer.cancel()
+                del timer
+        except UnboundLocalError:
+            timer = None
+            pass
+
+        return None
 
     def logNoPrint(self, *args):
         outtext = ""
