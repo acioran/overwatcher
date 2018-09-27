@@ -286,10 +286,12 @@ class Overwatcher():
             if cmd is None:
                 break
 
-            if self.sendendr is True:
-                cmd += "\r\n"
-            else:
-                cmd += "\n"
+            #Skip endline for y/n stuff
+            if len(cmd) > 1:
+                if self.sendendr is True:
+                    cmd += "\r\n"
+                else:
+                    cmd += "\n"
 
             ser_sock.sendall(cmd.encode('ascii'))
             self.log("SENT", cmd)
