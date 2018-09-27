@@ -461,6 +461,7 @@ class Overwatcher():
         if self.opt_RandomExec is False:
             return True
         else:
+            self.log("Random coin toss!")
             return random.choice([True, False])
 
     def getDeviceOutput(self):
