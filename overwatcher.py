@@ -96,7 +96,8 @@ class Overwatcher():
                 "TRIGGER_STOP"  : self.d_RunTriggers,
                 "SLEEP_RANDOM"  : self.sleepRandom,
                 "RANDOM_START"  : self.e_RandomExecution,
-                "RANDOM_STOP"   : self.d_RandomExecution
+                "RANDOM_STOP"   : self.d_RandomExecution,
+                "COUNT"         : self.countTrigger
                 }
         self.retval = {   
                             "config failed":    3,
@@ -122,6 +123,10 @@ class Overwatcher():
         #Add support for random sleep amounts - this can be set in setup_test
         self.sleep_min = 30 #seconds
         self.sleep_max = 120 #seconds
+
+        #Store counts for various triggers
+        self.counter = {}
+        self.counter["loop"] = 0
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -320,7 +325,7 @@ class Overwatcher():
                     try:
                         actions = self.triggers[current_state]
                         for opt in actions:
-                            self.options[opt]()
+                            self.options[opt](current_state)
                     except KeyError:
                         pass
 
@@ -348,6 +353,8 @@ class Overwatcher():
         while self.run["test"] is True:
             if test_idx == test_len:
                 if self.infiniteTest is True:
+                    self.counter["loop"] += 1
+                    self.log("GOT TO LOOP.....", self.counter["loop"])
                     test_idx = 0
                 else:
                     break
@@ -395,7 +402,7 @@ class Overwatcher():
                 #Needed for sleep option
                 wait_for_state = self.timer_stopTimer(wait_for_state)
 
-                self.options[required_state]()
+                self.options[required_state](required_state)
                 test_idx += 1
 
                 #Restart timer
@@ -421,37 +428,57 @@ class Overwatcher():
 
             # State changed and it isn't what we expect
             else: 
-                self.log("FOUND=", current_state, ", BUT WAS LOOKING FOR:", required_state)
-                self.mytest_failed()
+                ignore = False
+                #TODO: nicer version of this! :P
+                try:
+                    for opt in self.options.keys():
+                        for trig in self.triggers[current_state]:
+                            if opt == trig:
+                                self.log("IGNORING STATE=", current_state)
+                                ignore = True
+                                break
+                except KeyError:
+                    pass
+
+                if ignore is False:
+                    self.log("FOUND=", current_state, ", BUT WAS LOOKING FOR:", required_state)
+                    self.mytest_failed()
 
         self.mytest_ok()
 
     """
     -----------------------------------------INTERNAL APIs
     """
-    def e_RunTriggers(self):
+    def e_RunTriggers(self, state):
         self.log("ENABLING TRIGGERS")
         self.opt_RunTriggers = True
-    def d_RunTriggers(self):
+    def d_RunTriggers(self, state):
         self.log("DISABLING TRIGGERS")
         self.opt_RunTriggers = False
 
-    def e_IgnoreStates(self):
+    def e_IgnoreStates(self, state):
         self.log("IGNORING STATES")
         self.opt_IgnoreStates = True
-    def d_IgnoreStates (self):
+    def d_IgnoreStates (self, state):
         self.log("WATCHING STATES")
         self.opt_IgnoreStates = False
 
-    def e_RandomExecution(self):
+    def e_RandomExecution(self, state):
         self.log("RANDOM EXECUTION")
         self.opt_RandomExec = True
 
-    def d_RandomExecution(self):
+    def d_RandomExecution(self, state):
         self.log("STOP RANDOM EXECUTION")
         self.opt_RandomExec = False
 
-    def sleepRandom(self):
+    def countTrigger(self, state):
+        try:
+            self.counter[state] += 1
+        except KeyError:
+            self.counter[state] = 1
+        self.log("COUNTING for \'", state, "\'...got to ", self.counter[state])
+
+    def sleepRandom(self, state):
         duration = random.randint(self.sleep_min, self.sleep_max)
         self.log("ZzzzZZzzzzzzZzzzz....(", duration, "seconds )....")
         time.sleep(duration)
