@@ -520,14 +520,17 @@ class Overwatcher():
         self.queue_serwrite.put(cmd)
 
 
-    def getDeviceState(self):
+    def getDeviceState(self, blockQueue=True):
         """
         Wrapper over state queue. Blocks until data is available.
 
         Returns "" if queue is closing.
         """
-        state = self.queue_state.get(block=True)
-        self.queue_state.task_done()
+        try:
+            state = self.queue_state.get(block=blockQueue)
+            self.queue_state.task_done()
+        except queue.Empty:
+            state = None
         if state is None:
             return ""
         else:
@@ -539,7 +542,7 @@ class Overwatcher():
         wait2_return = self.waitPrompt_return
 
         while True:
-            state = self.getDeviceState()
+            state = self.getDeviceState(False)
             if state in self.prompts:
                 self.log("Found prompt!")
                 return
