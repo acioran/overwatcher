@@ -60,7 +60,7 @@ class Overwatcher():
         """
         self.log("\n\/ \/ \/ \/ STARTED CONFIG!\/ \/ \/ \/\n") 
         
-        self.sendDeviceCmd("\r\n")
+        self.sendDeviceCmd("")
 
         last_state = self.onetime_ConfigureDevice()
 
@@ -220,7 +220,7 @@ class Overwatcher():
             except KeyError:
                 pass
 
-            self.log("Looking for:", self.test_seq[conf_idx]) #idx might change
+            self.log("Looking for:", self.config_seq[conf_idx]) #idx might change
             current_state = self.getDeviceState()
             if current_state == "":
                 break
@@ -292,7 +292,8 @@ class Overwatcher():
                 break
 
             #Skip endline for y/n stuff
-            if len(cmd) > 1:
+            #NOTE: also works for 0 len cmds for sending an CR
+            if len(cmd) != 1:
                 if self.sendendr is True:
                     cmd += "\r\n"
                 else:
