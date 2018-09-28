@@ -84,6 +84,8 @@ class Overwatcher():
 
         self.user_inp = {}
 
+        self.prompts = []
+
     def setup_option_defaults(self):
         self.opt_RunTriggers = True
         self.opt_IgnoreStates = False
@@ -127,6 +129,10 @@ class Overwatcher():
         #Store counts for various triggers
         self.counter = {}
         self.counter["loop"] = 0
+
+
+        self.waitPrompt_enter = 100
+        self.waitPrompt_return = 2000
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -215,6 +221,7 @@ class Overwatcher():
                 self.log("RUNNING ACTIONS:", req_state, "=", self.actions[req_state])
                 for elem in self.actions[req_state]:
                     self.sendDeviceCmd(elem)
+                    self.waitDevicePrompt()
                 conf_idx += 1
                 continue
             except KeyError:
@@ -389,6 +396,7 @@ class Overwatcher():
                     #Handle RANDOM actions
                     if self.tossCoin() is True:
                         self.sendDeviceCmd(elem)
+                        self.waitDevicePrompt()
                 test_idx += 1
                 continue
             except KeyError:
@@ -524,6 +532,33 @@ class Overwatcher():
             return ""
         else:
             return state
+
+    def waitDevicePrompt(self):
+
+        wait1_enter = self.waitPrompt_enter
+        wait2_return = self.waitPrompt_return
+
+        while True:
+            state = self.getDeviceState()
+            if state in self.prompts:
+                self.log("Found prompt!")
+                return
+
+            #First thing, let's try to send a CR
+            wait1_enter -=1
+            if wait1_enter == 0:
+                self.sendDeviceCmd("")
+                self.log("NO PROMPT FOUND! Trying a CR...")
+                wait1_enter = -1 #But only once
+
+            #If that does not work, let's try to continue
+            #otherwise we will get a timeout anyway
+            wait2_return -=1
+            if wait2_return == 0:
+                self.log("NO PROMPT FOUND! TRYING TO CONTINUE...")
+                return
+
+            time.sleep(0.2)
 
     def waitDeviceState(self, state):
         while(self.getDeviceState() != state):
