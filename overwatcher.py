@@ -7,6 +7,8 @@ import datetime
 import queue
 import threading
 import argparse
+import yaml
+import os
 
 
 class Overwatcher():
@@ -26,6 +28,13 @@ class Overwatcher():
         NOTE: defaults are set before this is called, so only set what you need.
         NOTE: for backwards compatibility, this should be kept
         """
+        self.name = os.path.splitext(os.path.basename(test))[0] #Used for log file, get only the name
+        self.full_name = test #Also save the full file path in the logs, because you never know
+
+        tf = open(test, "r")
+        elems = yaml.safe_load_all(tf)
+        for elem in elems:
+            print(elem)
         return
 
     """
@@ -59,7 +68,11 @@ class Overwatcher():
         self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
     def setup_test_defaults(self):
+        #In case setup_test is overloaded, set these here
+        #NOTE: most likely will be overwritten in setup_test
         self.name = type(self).__name__
+        self.full_name = type(self).__name__
+
         self.timeout = 300.0 #seconds
 
         self.config_seq = []
@@ -98,7 +111,6 @@ class Overwatcher():
                       }
 
     def __init__(self, test, server='169.168.56.254', port=23200, sendR = False):
-
         """
         Class init. KISS 
         NOTE: keeping default for backwards compatibility...for now
@@ -119,7 +131,6 @@ class Overwatcher():
         #Store counts for various triggers
         self.counter = {}
         self.counter["loop"] = 0
-
 
         self.waitPrompt_enter = 100
         self.waitPrompt_return = 2000
@@ -645,6 +656,7 @@ class Overwatcher():
 
     def print_test(self):
         self.file_test.write(self.name + "\n\n")
+        self.file_test.write(self.full_name + "\n\n")
 
         self.file_test.write("MARKERS:\n")
         self.file_test.write(str(self.markers) + "\n")
