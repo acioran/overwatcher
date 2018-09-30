@@ -694,7 +694,7 @@ if __name__ == "__main__":
     parser.add_argument('--server', help='IP to telnet to',
             default='localhost')
     parser.add_argument('--port', help='Port to telnet to',
-            default='3000')
+            type=int, default=3000)
 
     args = parser.parse_args()
 
