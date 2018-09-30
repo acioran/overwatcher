@@ -43,7 +43,17 @@ class Overwatcher():
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
     """
     def mytest_timeout(self):
-        self.setResult("timeout")
+        """
+        Trying to improve the timeout problem. Sometimes the socket fluctuates and
+        overwatcher misses some output. This should be solved with a CR.
+        """
+        if self.counter["test_timeouts"] == 0:
+            self.setResult("timeout")
+        else:
+            self.counter["test_timeouts"] -= 1
+            self.sendDeviceCmd("") #Send a CR
+            self.mainTimer = self.timer_startTimer(self.mainTimer)
+
 
     def mytest_failed(self):
         self.setResult("failed")
@@ -128,7 +138,8 @@ class Overwatcher():
 
         #Store counts for various triggers
         self.counter = {}
-        self.counter["loop"] = 0
+        self.counter["test_loop"] = 0
+        self.counter["test_timeouts"] = 3 #no timeouts before exiting
 
 
         self.waitPrompt_enter = 100
@@ -140,9 +151,13 @@ class Overwatcher():
         self.queue_serread = queue.Queue()
         self.queue_serwrite = queue.Queue()
 
+
         #Start with defaults
         self.setup_test_defaults()
         self.setup_option_defaults()
+
+        #Use one main timer for all for now - note: needs default timeout value
+        self.mainTimer = self.timer_startTimer(None)
 
         #Load the user setup
         self.setup_test(my_vars)
@@ -207,9 +222,6 @@ class Overwatcher():
             return
 
         conf_idx = 0
-        conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
-        conf_timer.start()
-
         while(conf_idx < conf_len):
             #Look for the state
             req_state = self.config_seq[conf_idx]
@@ -237,12 +249,11 @@ class Overwatcher():
                 self.log("MOVED TO STATE=", req_state)
                 conf_idx += 1
 
-            conf_timer.cancel()
-            conf_timer = threading.Timer(self.timeout, self.mytest_timeout)
-            conf_timer.start()
+            #Restart timer
+            self.mainTimer = self.timer_startTimer(self.mainTimer)
 
                 
-        conf_timer.cancel()
+        self.mainTimer = self.timer_stopTimer(self.mainTimer)
         return current_state
 
     """
@@ -356,7 +367,6 @@ class Overwatcher():
         """
         test_len = len(self.test_seq)
         test_idx = 0
-        wait_for_state = None
 
         while self.run["test"] is True:
             if test_idx == test_len:
@@ -375,14 +385,14 @@ class Overwatcher():
             try:
                 self.log("\n\n\n", self.user_inp[required_state], "\n\n\n")
                 #NOTE: stop timer while waiting for user input
-                wait_for_state = self.timer_stopTimer(wait_for_state)
+                self.mainTimer = self.timer_stopTimer(self.mainTimer)
 
                 input("EXECUTE ACTION AND PRESS ENTER")
                 print("\nCONTINUING\n")
                 test_idx += 1
 
                 #Restart timer
-                wait_for_state = self.timer_startTimer(wait_for_state)
+                self.mainTimer = self.timer_startTimer(self.mainTimer)
                 continue
             except KeyError:
                 pass
@@ -410,13 +420,13 @@ class Overwatcher():
                 self.log("FOUND OPTION:", self.options[required_state], "in state", required_state)
 
                 #Needed for sleep option
-                wait_for_state = self.timer_stopTimer(wait_for_state)
+                self.mainTimer = self.timer_stopTimer(self.mainTimer)
 
                 self.options[required_state](required_state)
                 test_idx += 1
 
                 #Restart timer
-                wait_for_state = self.timer_startTimer(wait_for_state)
+                self.mainTimer = self.timer_startTimer(self.mainTimer)
                 continue
             except KeyError:
                 pass
@@ -434,7 +444,7 @@ class Overwatcher():
                 test_idx += 1
 
                 #TIMEOUT until next state
-                wait_for_state = self.timer_startTimer(wait_for_state)
+                self.mainTimer = self.timer_startTimer(self.mainTimer)
 
             # State changed and it isn't what we expect
             else: 
@@ -624,6 +634,7 @@ class Overwatcher():
             timer = threading.Timer(self.timeout, self.mytest_timeout)
             timer.start()
         except UnboundLocalError:
+            self.log("ERROR starting timer!")
             timer = None
 
         return timer
@@ -637,6 +648,7 @@ class Overwatcher():
                 timer.cancel()
                 del timer
         except UnboundLocalError:
+            self.log("ERROR stopping timer!")
             timer = None
             pass
 
