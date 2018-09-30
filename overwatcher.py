@@ -1,9 +1,12 @@
+#!/usr/bin/python3
+
 import socket
 import random
 import time
 import datetime
 import queue
 import threading
+import argparse
 
 
 class Overwatcher():
@@ -25,7 +28,7 @@ class Overwatcher():
         """
         return
 
-    def setup_test(self, cfg):
+    def setup_test(self, test):
         """
         Function used to setup all test configurations. 
 
@@ -108,10 +111,11 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, my_vars=None, server='169.168.56.254', port=23200, sendR = False):
+    def __init__(self, test, server='169.168.56.254', port=23200, sendR = False):
 
         """
         Class init. KISS 
+        NOTE: keeping default for backwards compatibility...for now
         """
         #Connection stuff
         self.server = server
@@ -145,7 +149,7 @@ class Overwatcher():
         self.setup_option_defaults()
 
         #Load the user setup
-        self.setup_test(my_vars)
+        self.setup_test(test)
         self.setup_config()
 
         #Open the log file and print everything
@@ -700,3 +704,18 @@ class Overwatcher():
         print("CLOSING FILE")
         self.file_test.close()
         print("CLOSED FILE")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Ultra-light test framework")
+
+    parser.add_argument('test', help='YAML test file to run')
+    parser.add_argument('--server', help='IP to telnet to',
+            default='localhost')
+    parser.add_argument('--port', help='Port to telnet to',
+            default='3000')
+
+    args = parser.parse_args()
+
+    test = Overwatcher(args.test, server=args.server, port=args.port)
+
+
