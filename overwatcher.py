@@ -17,28 +17,14 @@ class Overwatcher():
     """
 
     """
-    -------------------------FUNCTIONS THAT NEED TO BE OVERLOADED
+    -------------------------MAIN SETUP FUNCTION. Reads the test file. Can be overloaded
     """
-    def setup_config(self):
-        """
-        Function used to setup the device before the test.
-
-        Can be used to clean-up the setup test if the config is more complicated.
-        Otherwise, everything can be set in the setup_test function
-        """
-        return
-
     def setup_test(self, test):
         """
         Function used to setup all test configurations. 
 
         NOTE: defaults are set before this is called, so only set what you need.
-        """
-        raise NotImplementedError("PLEASE IMPLEMENT THIS IN CHILD CLASSES!")
-
-    def setup_options(self):
-        """
-        Used to set the various self.opt_*** flags and the self.options callbacks.
+        NOTE: for backwards compatibility, this should be kept
         """
         return
 
@@ -150,7 +136,6 @@ class Overwatcher():
 
         #Load the user setup
         self.setup_test(test)
-        self.setup_config()
 
         #Open the log file and print everything
         self.file_test = open(self.name + "_testresults.log", "w", buffering=1)
@@ -178,9 +163,6 @@ class Overwatcher():
 
         #Configure the device
         self.config_device()
-
-        #Set any user options
-        self.setup_options()
 
         #For the normal run, revert back to the normal markers
         self.statewatcher_markers = dict(self.markers)
