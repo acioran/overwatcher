@@ -29,7 +29,7 @@ class Overwatcher():
         NOTE: for backwards compatibility, this should be kept
         """
         self.name = os.path.splitext(os.path.basename(test))[0] #Used for log file, get only the name
-        self.full_name = test #Also save the full file path in the logs, because you never know
+        self.full_name = os.path.abspath(test) #Also save the full file path in the logs, because you never know
 
         tf = open(test, "r")
         elems = list(yaml.safe_load_all(tf))[0]
