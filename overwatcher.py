@@ -396,6 +396,7 @@ class Overwatcher():
                     #Handle RANDOM actions
                     if self.tossCoin() is True:
                         self.sendDeviceCmd(elem)
+                        self.log("Waiting for prompt for elem", elem)
                         self.waitDevicePrompt()
                 test_idx += 1
                 continue
@@ -542,6 +543,10 @@ class Overwatcher():
         wait2_return = self.waitPrompt_return
 
         while True:
+            if self.opt_IgnoreStates is True:
+                self.log("Ignore states is set, canceling prompt wait")
+                return
+
             state = self.getDeviceState(False)
             if state in self.prompts:
                 self.log("Found prompt!")
