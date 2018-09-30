@@ -1,0 +1,94 @@
+#First thing we need to define: MARKERS
+#These are text elements that overwatcher pays attention to and can be used 
+#for triggering actions immediatly when seen (example: see User -> send username)
+#for defining prompts(see below) or for defining the actual test flow. If the
+#string is not here, overwatcher does not pay attention to it
+#
+#The format is <actual string seen from device> : <choose a simple label>
+#Order of markers is not important
+ markers:
+    "U-Boot SPL"            :   uboot_begin
+    "reset"                 :   uboot_end
+    "Hit any key to stop"   :   uboot_enter
+    "nn#"                   :   uboot_prompt
+
+#Next we should define: PROMPTS
+#These are strings that are expected after a command is sent to the device.
+#Why? Because we might run into commands that take a while to run and the test
+#should not keep pushing stuff to the device while it is blocked.
+#NOTE: for now, this is not blocking; if the prompt is not seen in a while, 
+#overwatcher tries to send a CR; if the prompt still does not appear, it tries
+#to continue the test (the timeout will stop it anyway if the device is blocked)
+#
+#
+#Format: list of markers from above that can appear after running commands
+#WARNING: keep the "-" format, it is required to automatically get a list
+ prompts:
+    - uboot_prompt
+
+#Now we are moving to doing stuff: TRIGGERS
+#Triggers are automatic actions that are run when a marker is seen. These actions
+#can include sending device commands or setting overwatcher options. Please note
+#that these triggers do not take into account the test flow...if a marker appears, 
+#they are just run.
+#
+#Format: <label for marker from above> : <list of stuff to do>
+#WARNING: keep the [] format, it is required to automatically get a list
+ triggers:
+     uboot_begin :  [ WATCH_STATES, TRIGGER_START ]
+     uboot_end   :  [ IGNORE_STATES, TRIGGER_STOP ]
+     uboot_enter :  [ "" ]
+
+#And now the actual test stuff: ACTIONS
+#Actions are commands that will be run during the test flow. Unlike triggers, they
+#are not automatic, they need to be added to the test flow below to be run. After each
+#element of the list of actions is run, overwatcher wait for a prompt before sending
+#the next one.
+#NOTE: overwatcher options are not supported for now as actions! (reason: combined with
+#the waiting for prompt, the device might move too fast which will lead to unexpected
+#behavior)
+#NOTE: the names do not collide with the markers above, but for clarity do not use the same!
+#
+#Format: <label that you come up with> : <list of stuff to do>
+#WARNING: keep the [] format, it is required to automatically get a list
+ actions:
+     print_stuff:   [ help, printenv ]
+     reboot     :   [ reset ]
+
+
+#Ok, we are almost ready for the test, but first: INITIAL CONFIGURATION
+#This is a sequence identical to the test, but it is only run once when starting the test.
+#It can be used to do some initial sets. The recommanded way to start this is with a maker
+#for a known state...the config blocks until it reaches that state (either via triggers or
+#manually) and then it runs the configuration actions from a known state.
+#
+#Format: list of markers and/or actions
+#WARNING: keep the "-" format, it is required to automatically get a list
+ initconfig:
+     - uboot_prompt
+
+#Now to the thing we came here for: ZA TEST
+#This is a series of markers, actions and options that are expected and run in the given
+#order. The actual test can be single run (go through it and stop) or infinite (run forever).
+#Take this into account and use the configuration sequence above for initial configuration.
+#To further enhance the functionality you can use the options below.
+#
+#Format: list of markers, actions and options
+#WARNING: keep the "-" format, it is required to automatically get a list
+ test:
+     - print_stuff
+     - SLEEP_RANDOM
+     - reboot
+     - uboot_begin
+     - uboot_enter
+
+#If you are here, you need some advanced tweaks for the test: OPTIONS
+#These are various stuff that are set before the test starts and kept
+#like this for the duration of the test.
+#
+#Format: <option name>:     <value>
+ options:
+    timeout     :   150     #seconds
+    infiniteTest:   True    #run the test in a loop
+    sleep_min   :   20      #seconds
+    sleep_max   :   40      #seconds
