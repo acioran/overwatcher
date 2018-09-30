@@ -51,6 +51,7 @@ class Overwatcher():
             self.setResult("timeout")
         else:
             self.counter["test_timeouts"] -= 1
+            self.log("GOT A TIMEOUT, giving it another try...we have", self.counter["test_timeouts"], "left")
             self.sendDeviceCmd("") #Send a CR
             self.mainTimer = self.timer_startTimer(self.mainTimer)
 
@@ -136,10 +137,12 @@ class Overwatcher():
         self.sleep_min = 30 #seconds
         self.sleep_max = 120 #seconds
 
+        self.test_max_timeouts = 2 #How many timeouts can occur per test or per loop
+
         #Store counts for various triggers
         self.counter = {}
         self.counter["test_loop"] = 0
-        self.counter["test_timeouts"] = 3 #no timeouts before exiting
+        self.counter["test_timeouts"] = self.test_max_timeouts
 
 
         self.waitPrompt_enter = 100
@@ -371,8 +374,9 @@ class Overwatcher():
         while self.run["test"] is True:
             if test_idx == test_len:
                 if self.infiniteTest is True:
-                    self.counter["loop"] += 1
-                    self.log("GOT TO LOOP.....", self.counter["loop"])
+                    self.counter["test_loop"] += 1
+                    self.counter["test_timeouts"] = self.test_max_timeouts #Reset the timeouts possible
+                    self.log("GOT TO LOOP.....", self.counter["test_loop"])
                     test_idx = 0
                 else:
                     break
