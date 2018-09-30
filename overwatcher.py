@@ -34,6 +34,7 @@ class Overwatcher():
         tf = open(test, "r")
         elems = list(yaml.safe_load_all(tf))[0]
 
+        #Thanks to YAML this was easy
         self.markers = dict(elems['markers'])
         self.prompts = list(elems['prompts'])
         self.triggers = dict(elems['triggers'])
@@ -42,6 +43,9 @@ class Overwatcher():
         self.config_seq = list(elems['initconfig'])
         self.test_seq = list(elems['test'])
 
+        #What we need to worry about are the options
+        for opt in elems['options']:
+            setattr(self, opt, elems['options'][opt])
     """
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
     """
