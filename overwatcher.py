@@ -1,9 +1,14 @@
+#!/usr/bin/python3
+
 import socket
 import random
 import time
 import datetime
 import queue
 import threading
+import argparse
+import yaml
+import os
 
 
 class Overwatcher():
@@ -14,31 +19,33 @@ class Overwatcher():
     """
 
     """
-    -------------------------FUNCTIONS THAT NEED TO BE OVERLOADED
+    -------------------------MAIN SETUP FUNCTION. Reads the test file. Can be overloaded
     """
-    def setup_config(self):
-        """
-        Function used to setup the device before the test.
-
-        Can be used to clean-up the setup test if the config is more complicated.
-        Otherwise, everything can be set in the setup_test function
-        """
-        return
-
-    def setup_test(self, cfg):
+    def setup_test(self, test):
         """
         Function used to setup all test configurations. 
 
         NOTE: defaults are set before this is called, so only set what you need.
+        NOTE: for backwards compatibility, this should be kept
         """
-        raise NotImplementedError("PLEASE IMPLEMENT THIS IN CHILD CLASSES!")
+        self.name = os.path.splitext(os.path.basename(test))[0] #Used for log file, get only the name
+        self.full_name = os.path.abspath(test) #Also save the full file path in the logs, because you never know
 
-    def setup_options(self):
-        """
-        Used to set the various self.opt_*** flags and the self.options callbacks.
-        """
-        return
+        tf = open(test, "r")
+        elems = list(yaml.safe_load_all(tf))[0]
 
+        #Thanks to YAML this was easy
+        self.markers = dict(elems['markers'])
+        self.prompts = list(elems['prompts'])
+        self.triggers = dict(elems['triggers'])
+        self.actions = dict(elems['actions'])
+
+        self.config_seq = list(elems['initconfig'])
+        self.test_seq = list(elems['test'])
+
+        #What we need to worry about are the options
+        for opt in elems['options']:
+            setattr(self, opt, elems['options'][opt])
     """
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
     """
@@ -81,7 +88,11 @@ class Overwatcher():
         self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
     def setup_test_defaults(self):
+        #In case setup_test is overloaded, set these here
+        #NOTE: most likely will be overwritten in setup_test
         self.name = type(self).__name__
+        self.full_name = type(self).__name__
+
         self.timeout = 300.0 #seconds
 
         self.config_seq = []
@@ -119,10 +130,10 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, my_vars=None, server='169.168.56.254', port=23200, sendR = False):
-
+    def __init__(self, test, server='169.168.56.254', port=23200, sendR = False):
         """
         Class init. KISS 
+        NOTE: keeping default for backwards compatibility...for now
         """
         #Connection stuff
         self.server = server
@@ -144,7 +155,6 @@ class Overwatcher():
         self.counter["test_loop"] = 0
         self.counter["test_timeouts"] = self.test_max_timeouts
 
-
         self.waitPrompt_enter = 100
         self.waitPrompt_return = 2000
 
@@ -163,8 +173,7 @@ class Overwatcher():
         self.mainTimer = self.timer_startTimer(None)
 
         #Load the user setup
-        self.setup_test(my_vars)
-        self.setup_config()
+        self.setup_test(test)
 
         #Open the log file and print everything
         self.file_test = open(self.name + "_testresults.log", "w", buffering=1)
@@ -192,9 +201,6 @@ class Overwatcher():
 
         #Configure the device
         self.config_device()
-
-        #Set any user options
-        self.setup_options()
 
         #For the normal run, revert back to the normal markers
         self.statewatcher_markers = dict(self.markers)
@@ -675,6 +681,7 @@ class Overwatcher():
 
     def print_test(self):
         self.file_test.write(self.name + "\n\n")
+        self.file_test.write(self.full_name + "\n\n")
 
         self.file_test.write("MARKERS:\n")
         self.file_test.write(str(self.markers) + "\n")
@@ -716,3 +723,18 @@ class Overwatcher():
         print("CLOSING FILE")
         self.file_test.close()
         print("CLOSED FILE")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Ultra-light test framework")
+
+    parser.add_argument('test', help='YAML test file to run')
+    parser.add_argument('--server', help='IP to telnet to',
+            default='localhost')
+    parser.add_argument('--port', help='Port to telnet to',
+            type=int, default=3000)
+
+    args = parser.parse_args()
+
+    test = Overwatcher(args.test, server=args.server, port=args.port)
+
+
