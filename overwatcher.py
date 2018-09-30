@@ -32,10 +32,15 @@ class Overwatcher():
         self.full_name = test #Also save the full file path in the logs, because you never know
 
         tf = open(test, "r")
-        elems = yaml.safe_load_all(tf)
-        for elem in elems:
-            print(elem)
-        return
+        elems = list(yaml.safe_load_all(tf))[0]
+
+        self.markers = dict(elems['markers'])
+        self.prompts = list(elems['prompts'])
+        self.triggers = dict(elems['triggers'])
+        self.actions = dict(elems['actions'])
+
+        self.config_seq = list(elems['initconfig'])
+        self.test_seq = list(elems['test'])
 
     """
     -------------------------TEST RESULT FUNCTIONS, called on test ending. Can be overloaded.
