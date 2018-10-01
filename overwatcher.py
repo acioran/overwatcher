@@ -506,7 +506,11 @@ class Overwatcher():
             self.counter[state] += 1
         except KeyError:
             self.counter[state] = 1
+
         self.log("COUNTING for \'", state, "\'...got to ", self.counter[state])
+        #Display all counting stats everytime:
+        for elem in self.counter:
+            self.log("COUNT FOR", elem, "is", self.counter[elem])
 
     def sleepRandom(self, state):
         duration = random.randint(self.sleep_min, self.sleep_max)
