@@ -434,6 +434,13 @@ class Overwatcher():
             try:
                 self.log("RUNNING ACTIONS:", required_state, "=", self.actions[required_state])
                 for elem in self.actions[required_state]:
+                    #Run any options in actions
+                    try:
+                        self.options[elem](required_state)
+                        continue
+                    except KeyError:
+                        pass
+                    
                     #Handle RANDOM actions
                     if self.tossCoin() is True:
                         self.sendDeviceCmd(elem)
