@@ -35,6 +35,7 @@ class Overwatcher():
         elems = list(yaml.safe_load_all(tf))[0]
 
         #Thanks to YAML this was easy
+        self.info = dict(elems['info'])
         self.markers = dict(elems['markers'])
         self.prompts = list(elems['prompts'])
         self.triggers = dict(elems['triggers'])
@@ -107,6 +108,9 @@ class Overwatcher():
         self.user_inp = {}
 
         self.prompts = []
+
+        #Various test information
+        self.info = {}
 
     def setup_option_defaults(self):
         self.opt_RunTriggers = True
@@ -714,6 +718,13 @@ class Overwatcher():
     def print_test(self):
         self.file_test.write(self.name + "\n\n")
         self.file_test.write(self.full_name + "\n\n")
+        for elem in self.info:
+            if elem == "version":
+                self.file_test.write(elem + " - " + str(self.info[elem][0]) + "\n")
+            else:
+                self.file_test.write(elem + " - " + str(self.info[elem]) + "\n")
+
+        self.file_test.write("\n\n")
 
         self.file_test.write("MARKERS:\n")
         self.file_test.write(str(self.markers) + "\n")

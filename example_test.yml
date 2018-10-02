@@ -1,3 +1,17 @@
+#Test information, this can be expanded as it is just dumped in the log, only 
+#the version field is processed (keep in reverse order, newest at top, because
+#it only prints the top one in the log).
+#NOTE: if some information here will be used, please update this description
+ info:
+     purpose:   Example
+     author:    Andrei Cioran
+     version:   
+        - 2, 02.10.2018, updated reboot stuff, added info
+        - 1, 30.09.2018, initial version
+     notes: >      
+         This is just a basic test and a configuration example. This can be
+         expanded beyond u-boot to serial CLI.
+
 #First thing we need to define: MARKERS
 #These are text elements that overwatcher pays attention to and can be used 
 #for triggering actions immediatly when seen (example: see User -> send username)
