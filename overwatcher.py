@@ -284,6 +284,13 @@ class Overwatcher():
                 x = ser_sock.recv(1)
             except socket.timeout:
                 x = b'\n'
+            except (ConnectionResetError, BrokenPipeError) as e:
+                self.log("BROKEN CONNECTIN, RESETTING SOCKET")
+                time.sleep(5) #Wait a small while
+                ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                ser_sock.connect((self.server, self.port))
+                ser_sock.setblocking(0)
+                ser_sock.settimeout(2) #seconds
             serout = ""
             while((x != b'\n') and (x != b'\r') and (self.run["recv"] is True)):
                 if(x != b'\n') and (x != b'\r'):
@@ -299,6 +306,13 @@ class Overwatcher():
                     x = ser_sock.recv(1)
                 except socket.timeout:
                     x = b'\n'
+                except (ConnectionResetError, BrokenPipeError) as e:
+                    self.log("BROKEN CONNECTIN, RESETTING SOCKET")
+                    time.sleep(5) #Wait a small while
+                    ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    ser_sock.connect((self.server, self.port))
+                    ser_sock.setblocking(0)
+                    ser_sock.settimeout(2) #seconds
 
             serout = serout.strip()
             self.queue_serread.put(serout)
@@ -326,8 +340,15 @@ class Overwatcher():
                 else:
                     cmd += "\n"
 
-            ser_sock.sendall(cmd.encode('ascii'))
-            self.log("SENT", cmd)
+            try:
+                ser_sock.sendall(cmd.encode())
+            except (ConnectionResetError, BrokenPipeError) as e:
+                self.log("BROKEN CONNECTIN, RESETTING SOCKET")
+                time.sleep(5) #Wait a small while
+                ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                ser_sock.connect((self.server, self.port))
+
+            self.log("SENT", repr(cmd))
             time.sleep(0.4)
         
 
