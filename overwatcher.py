@@ -152,7 +152,7 @@ class Overwatcher():
 
         #Store counts for various triggers
         self.counter = {}
-        self.counter["test_loop"] = 0
+        self.counter["test_loop"] = 1
         self.counter["test_timeouts"] = self.test_max_timeouts
 
         self.waitPrompt_enter = 100
