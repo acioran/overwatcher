@@ -134,7 +134,7 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, test, server='169.168.56.254', port=23200, sendR = False):
+    def __init__(self, test, server='169.168.56.254', port=23200):
         """
         Class init. KISS 
         NOTE: keeping default for backwards compatibility...for now
@@ -142,7 +142,7 @@ class Overwatcher():
         #Connection stuff
         self.server = server
         self.port = port
-        self.sendendr = sendR
+        self.sendendr = False
 
         #Add support for infnite running tests - this can be set in setup_test
         #NOTE: timeout still occurs!
@@ -153,6 +153,8 @@ class Overwatcher():
         self.sleep_max = 120 #seconds
 
         self.test_max_timeouts = 2 #How many timeouts can occur per test or per loop
+
+        self.mainSocket = self.sock_create()
 
         #Store counts for various triggers
         self.counter = {}
@@ -278,23 +280,15 @@ class Overwatcher():
 
         TODO: re-write this. Very old code and it can be done way better 
         """
-        ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ser_sock.connect((self.server, self.port))
-        ser_sock.setblocking(0)
-        ser_sock.settimeout(2) #seconds
- 
         while self.run["recv"] is True:
             try:
-                x = ser_sock.recv(1)
+                x = self.mainSocket.recv(1)
             except socket.timeout:
                 x = b'\n'
             except (ConnectionResetError, BrokenPipeError) as e:
                 self.log("BROKEN CONNECTIN, RESETTING SOCKET")
                 time.sleep(5) #Wait a small while
-                ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                ser_sock.connect((self.server, self.port))
-                ser_sock.setblocking(0)
-                ser_sock.settimeout(2) #seconds
+                self.mainSocket = self.sock_create()
             serout = ""
             while((x != b'\n') and (x != b'\r') and (self.run["recv"] is True)):
                 if(x != b'\n') and (x != b'\r'):
@@ -307,30 +301,24 @@ class Overwatcher():
                 #Why do the timeout: the login screen displays "User:" and no endline.
                 #How do you know that the device is waiting for something in this case?
                 try:
-                    x = ser_sock.recv(1)
+                    x = self.mainSocket.recv(1)
                 except socket.timeout:
                     x = b'\n'
                 except (ConnectionResetError, BrokenPipeError) as e:
                     self.log("BROKEN CONNECTIN, RESETTING SOCKET")
                     time.sleep(5) #Wait a small while
-                    ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    ser_sock.connect((self.server, self.port))
-                    ser_sock.setblocking(0)
-                    ser_sock.settimeout(2) #seconds
+                    self.mainSocket = self.sock_create()
 
             serout = serout.strip()
             self.queue_serread.put(serout)
-            self.logNoPrint(serout)
+            self.log(serout)
 
-        ser_sock.close()
+        self.mainSocket.close()
 
     def thread_SerialWrite(self):
         """
         Sender thread. Sends commands to the device.
         """
-        ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ser_sock.connect((self.server, self.port))
- 
         while self.run["send"] is True:
             cmd = self.queue_serwrite.get(block=True)
             if cmd is None:
@@ -342,15 +330,14 @@ class Overwatcher():
                 if self.sendendr is True:
                     cmd += "\r\n"
                 else:
-                    cmd += "\n"
+                    cmd += "\r"
 
             try:
-                ser_sock.sendall(cmd.encode())
+                self.mainSocket.sendall(cmd.encode())
             except (ConnectionResetError, BrokenPipeError) as e:
                 self.log("BROKEN CONNECTIN, RESETTING SOCKET")
                 time.sleep(5) #Wait a small while
-                ser_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                ser_sock.connect((self.server, self.port))
+                self.mainSocket = self.sock_create()
 
             self.log("SENT", repr(cmd))
             time.sleep(0.4)
@@ -699,6 +686,19 @@ class Overwatcher():
             pass
 
         return None
+
+    def sock_create(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connected = False
+        while connected is False:
+            try:
+                s.connect((self.server, self.port))
+                connected = True
+            except OSError:
+                pass
+
+        return s
+
 
     def logNoPrint(self, *args):
         outtext = ""
