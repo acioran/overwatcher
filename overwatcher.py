@@ -154,7 +154,6 @@ class Overwatcher():
 
         self.test_max_timeouts = 2 #How many timeouts can occur per test or per loop
 
-        self.mainSocket = self.sock_create()
 
         #Store counts for various triggers
         self.counter = {}
@@ -184,6 +183,8 @@ class Overwatcher():
         #Open the log file and print everything
         self.file_test = open(self.name + "_testresults.log", "w", buffering=1)
         self.print_test()
+
+        self.mainSocket = self.sock_create()
 
         #Prepare the threads
         self.run = {}
@@ -689,6 +690,7 @@ class Overwatcher():
 
     def sock_create(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.log("Opening socket")
         connected = False
         while connected is False:
             try:
@@ -696,7 +698,7 @@ class Overwatcher():
                 connected = True
             except OSError:
                 pass
-
+        self.log("Socket online")
         return s
 
 
