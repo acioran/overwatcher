@@ -79,7 +79,9 @@ class Overwatcher():
         """
         self.log("\n\/ \/ \/ \/ STARTED CONFIG!\/ \/ \/ \/\n") 
         
-        self.sendDeviceCmd("")
+        if self.telnetTest is False:
+            #On serial, send CR to see where we are
+            self.sendDeviceCmd("")
 
         last_state = self.onetime_ConfigureDevice()
 
@@ -134,7 +136,7 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, test, server='169.168.56.254', port=23200):
+    def __init__(self, test, server='169.168.56.254', port=23200, runAsTelnetTest=False):
         """
         Class init. KISS 
         NOTE: keeping default for backwards compatibility...for now
@@ -144,9 +146,17 @@ class Overwatcher():
         self.port = port
         self.sendendr = False
 
-        #Add support for infnite running tests - this can be set in setup_test
+        #Add support for infinite running tests - this can be set in setup_test
         #NOTE: timeout still occurs!
         self.infiniteTest = False
+
+        #Add support for running the tests over telnet
+        self.telnetTest = runAsTelnetTest
+        #For telnet we need to send just a '\r', adding a dict to make things easier
+        if self.telnetTest is False:
+            self.eol= { 'endr': '\r\n', 'noendr': '\n'}
+        else:
+            self.eol= { 'endr': '\r', 'noendr': '\r' }
 
         #Add support for random sleep amounts - this can be set in setup_test
         self.sleep_min = 30 #seconds
@@ -281,38 +291,40 @@ class Overwatcher():
 
         TODO: re-write this. Very old code and it can be done way better 
         """
+        x=b''
+        eol = [ b'\n', b'\r', b'>', b'#', b'\b' ] 
         while self.run["recv"] is True:
-            try:
-                x = self.mainSocket.recv(1)
-            except socket.timeout:
-                x = b'\n'
-            except (ConnectionResetError, BrokenPipeError) as e:
-                self.log("BROKEN CONNECTIN, RESETTING SOCKET")
-                time.sleep(5) #Wait a small while
-                self.mainSocket = self.sock_create()
             serout = ""
-            while((x != b'\n') and (x != b'\r') and (self.run["recv"] is True)):
-                if(x != b'\n') and (x != b'\r'):
-                    try:
-                        serout += x.decode('ascii')
-                        if(x == b'>') or (x == b'#') or (x == b'\b'):
-                            break
-                    except UnicodeDecodeError:
-                        pass
+            while self.run["recv"] is True:
                 #Why do the timeout: the login screen displays "User:" and no endline.
                 #How do you know that the device is waiting for something in this case?
                 try:
                     x = self.mainSocket.recv(1)
                 except socket.timeout:
                     x = b'\n'
-                except (ConnectionResetError, BrokenPipeError) as e:
-                    self.log("BROKEN CONNECTIN, RESETTING SOCKET")
-                    time.sleep(5) #Wait a small while
+                    break
+                except OSError:
+                    self.log("Reopening socket")
+                    time.sleep(5)
                     self.mainSocket = self.sock_create()
 
-            serout = serout.strip()
-            self.queue_serread.put(serout)
-            self.log(serout)
+                if not x:
+                    self.log("Socket closed, reopening")
+                    time.sleep(5)
+                    self.mainSocket = self.sock_create()
+
+                try:
+                    serout += x.decode('ascii')
+                except UnicodeDecodeError:
+                    pass
+
+                if x in eol:
+                    break
+
+            if(len(serout.strip()) != 0):
+                self.log("DEV", serout)
+                serout = serout.strip()
+                self.queue_serread.put(serout)
 
         self.mainSocket.close()
 
@@ -329,15 +341,15 @@ class Overwatcher():
             #NOTE: also works for 0 len cmds for sending an CR
             if len(cmd) != 1:
                 if self.sendendr is True:
-                    cmd += "\r\n"
+                    cmd += self.eol['endr']
                 else:
-                    cmd += "\r"
+                    cmd += self.eol['noendr']
 
             try:
                 self.mainSocket.sendall(cmd.encode())
-            except (ConnectionResetError, BrokenPipeError) as e:
-                self.log("BROKEN CONNECTIN, RESETTING SOCKET")
-                time.sleep(5) #Wait a small while
+            except OSError:
+                self.log("Reopening socket for sending")
+                time.sleep(5)
                 self.mainSocket = self.sock_create()
 
             self.log("SENT", repr(cmd))
@@ -364,9 +376,14 @@ class Overwatcher():
 
                     #First run all the options for the state
                     try:
+                        #Note: we might not have actions for a state!
                         actions = self.triggers[current_state]
                         for opt in actions:
-                            self.options[opt](current_state)
+                            try:
+                                print("GOT", opt)
+                                self.options[opt](current_state)
+                            except KeyError:
+                                pass
                     except KeyError:
                         pass
 
@@ -509,6 +526,11 @@ class Overwatcher():
     def e_IgnoreStates(self, state):
         self.log("IGNORING STATES")
         self.opt_IgnoreStates = True
+        #Only on telnet, close the socket now, as this is probably a reboot
+        if self.telnetTest is True:
+            time.sleep(30) #Take a while closing the socket, so we make sure the device reboots
+            self.mainSocket.close()
+
     def d_IgnoreStates (self, state):
         self.log("WATCHING STATES")
         self.opt_IgnoreStates = False
@@ -697,8 +719,12 @@ class Overwatcher():
                 s.connect((self.server, self.port))
                 connected = True
             except OSError:
+                time.sleep(5)
                 pass
+        s.setblocking(0)
+        s.settimeout(2) #seconds
         self.log("Socket online")
+        self.opt_IgnoreStates = False #We might have missed something
         return s
 
 
@@ -777,9 +803,11 @@ if __name__ == "__main__":
             default='localhost')
     parser.add_argument('--port', help='Port to telnet to',
             type=int, default=3000)
+    parser.add_argument('--telnet', help='Run test over telnet to device',
+            action='store_true')
 
     args = parser.parse_args()
 
-    test = Overwatcher(args.test, server=args.server, port=args.port)
+    test = Overwatcher(args.test, server=args.server, port=args.port, runAsTelnetTest=args.telnet)
 
 
