@@ -374,29 +374,18 @@ class Overwatcher():
 
                     self.log("FOUND", current_state, "state in", serout)
 
-                    #First run all the options for the state
-                    try:
-                        #Note: we might not have actions for a state!
-                        actions = self.triggers[current_state]
-                        for opt in actions:
-                            try:
-                                print("GOT", opt)
-                                self.options[opt](current_state)
-                            except KeyError:
-                                pass
-                    except KeyError:
-                        pass
-
                     #Notify everyone of the new state
                     self.updateDeviceState(current_state)
 
-                    #Run the other triggers
+                    #Run the triggers of the state
                     if self.opt_RunTriggers is True:
                         try:
                             actions = self.triggers[current_state]
                             for act in actions:
                                 if act not in self.options.keys():
                                     self.sendDeviceCmd(act)
+                                else:
+                                    self.options[opt](current_state)
                         except KeyError:
                             pass
 
@@ -711,6 +700,11 @@ class Overwatcher():
         return None
 
     def sock_create(self):
+        if self.telnetTest is True:
+            #On telnet it might close before the IGNORE STATES part
+            self.opt_IgnoreStates = True
+            self.opt_RunTriggers = False
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.log("Opening socket")
         connected = False
@@ -720,11 +714,16 @@ class Overwatcher():
                 connected = True
             except OSError:
                 time.sleep(5)
+                self.log("Still waiting...")
                 pass
         s.setblocking(0)
         s.settimeout(2) #seconds
-        self.log("Socket online")
-        self.opt_IgnoreStates = False #We might have missed something
+        self.log("Socket online") 
+        
+        #We might have missed something on serial
+        #On telnet this is important
+        self.opt_IgnoreStates = False
+        self.opt_RunTriggers = True
         return s
 
 
