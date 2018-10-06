@@ -201,6 +201,10 @@ class Overwatcher():
         self.mainSocket = self.sock_create()
         self.sleep_sockWait = 30 #seconds
 
+        #For the config phase also use the cfg only markers
+        self.statewatcher_markers = dict(self.markers_cfg)
+        self.statewatcher_markers.update(self.markers)
+
         #Prepare the threads
         self.run = {}
         self.th = {}
@@ -216,10 +220,6 @@ class Overwatcher():
         self.run["state_watcher"] = True
         self.th["state_watcher"] = threading.Thread(target=self.thread_StateWatcher, daemon=True)
         self.th["state_watcher"].start()
-
-        #For the config phase also use the cfg only markers
-        self.statewatcher_markers = dict(self.markers_cfg)
-        self.statewatcher_markers.update(self.markers)
 
         #Configure the device
         self.config_device()
