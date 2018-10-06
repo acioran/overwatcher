@@ -131,6 +131,10 @@ class Overwatcher():
                 "RANDOM_STOP"   : self.d_RandomExecution,
                 "COUNT"         : self.countTrigger
                 }
+
+        #What we need to run even if states are ignored and triggers disabled
+        self.critical_options = ["WATCH_STATES", "TRIGGER_START"]
+
         self.retval = {   
                             "config failed":    3,
                             "timeout" :         2,
@@ -379,6 +383,15 @@ class Overwatcher():
 
                     self.log("FOUND", current_state, "state in", serout)
 
+                    #Run the critical options, if any are present for the state
+                    try:
+                        actions = self.triggers[current_state]
+                        for opt in actions:
+                            if opt in self.critical_options:
+                                self.options[opt](current_state)
+                    except KeyError:
+                        pass
+
                     #Notify everyone of the new state
                     self.updateDeviceState(current_state)
 
@@ -389,7 +402,8 @@ class Overwatcher():
                             for act in actions:
                                 if act not in self.options.keys():
                                     self.sendDeviceCmd(act)
-                                else:
+                                elif act not in self.critical_options:
+                                    #Run the rest of the normal options, in order
                                     self.options[opt](current_state)
                         except KeyError:
                             pass
