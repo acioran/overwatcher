@@ -60,8 +60,10 @@ class Overwatcher():
         else:
             self.counter["test_timeouts"] -= 1
             self.log("GOT A TIMEOUT, giving it another try...we have", self.counter["test_timeouts"], "left")
-            self.sendDeviceCmd("") #Send a CR
             self.mainTimer = self.timer_startTimer(self.mainTimer)
+            if self.telnetTest is False:
+                #On telnet no need to send a CR
+                self.sendDeviceCmd("") #Send a CR
 
 
     def mytest_failed(self):
@@ -161,6 +163,7 @@ class Overwatcher():
         #Add support for random sleep amounts - this can be set in setup_test
         self.sleep_min = 30 #seconds
         self.sleep_max = 120 #seconds
+        
 
         self.test_max_timeouts = 2 #How many timeouts can occur per test or per loop
 
@@ -170,7 +173,7 @@ class Overwatcher():
         self.counter["test_loop"] = 1
         self.counter["test_timeouts"] = self.test_max_timeouts
 
-        self.waitPrompt_enter = 100
+        self.waitPrompt_enter = 1000
         self.waitPrompt_return = 2000
 
         self.queue_state = queue.Queue() 
@@ -194,7 +197,9 @@ class Overwatcher():
         self.file_test = open(self.name + "_testresults.log", "w", buffering=1)
         self.print_test()
 
+        self.sleep_sockWait = 0 #Just for startup
         self.mainSocket = self.sock_create()
+        self.sleep_sockWait = 30 #seconds
 
         #Prepare the threads
         self.run = {}
@@ -292,7 +297,7 @@ class Overwatcher():
         TODO: re-write this. Very old code and it can be done way better 
         """
         x=b''
-        eol = [ b'\n', b'\r', b'>', b'#', b'\b' ] 
+        eol = [ b'\n', b'\r' ] 
         while self.run["recv"] is True:
             serout = ""
             while self.run["recv"] is True:
@@ -305,12 +310,10 @@ class Overwatcher():
                     break
                 except OSError:
                     self.log("Reopening socket")
-                    time.sleep(5)
                     self.mainSocket = self.sock_create()
 
                 if not x:
                     self.log("Socket closed, reopening")
-                    time.sleep(5)
                     self.mainSocket = self.sock_create()
 
                 try:
@@ -326,7 +329,7 @@ class Overwatcher():
                 serout = serout.strip()
                 self.queue_serread.put(serout)
 
-        self.mainSocket.close()
+        self.sock_close(self.mainSocket)
 
     def thread_SerialWrite(self):
         """
@@ -349,7 +352,6 @@ class Overwatcher():
                 self.mainSocket.sendall(cmd.encode())
             except OSError:
                 self.log("Reopening socket for sending")
-                time.sleep(5)
                 self.mainSocket = self.sock_create()
 
             self.log("SENT", repr(cmd))
@@ -506,21 +508,32 @@ class Overwatcher():
     -----------------------------------------INTERNAL APIs
     """
     def e_RunTriggers(self, state):
+        #Already set, no need to do it again
+        if self.opt_RunTriggers is True:
+            return
         self.log("ENABLING TRIGGERS")
         self.opt_RunTriggers = True
     def d_RunTriggers(self, state):
+        #Already set, no need to do it again
+        if self.opt_RunTriggers is False:
+            return
         self.log("DISABLING TRIGGERS")
         self.opt_RunTriggers = False
 
     def e_IgnoreStates(self, state):
+        #Already set, no need to do it again
+        if self.opt_IgnoreStates is True:
+            return
         self.log("IGNORING STATES")
         self.opt_IgnoreStates = True
-        #Only on telnet, close the socket now, as this is probably a reboot
         if self.telnetTest is True:
-            time.sleep(30) #Take a while closing the socket, so we make sure the device reboots
-            self.mainSocket.close()
+            #Only on telnet, close the socket now, as this is probably a reboot
+            self.sock_close(self.mainSocket)
 
     def d_IgnoreStates (self, state):
+        #Already set, no need to do it again
+        if self.opt_IgnoreStates is False:
+            return
         self.log("WATCHING STATES")
         self.opt_IgnoreStates = False
 
@@ -700,10 +713,11 @@ class Overwatcher():
         return None
 
     def sock_create(self):
-        if self.telnetTest is True:
+        if self.telnetTest is True and self.sleep_sockWait != 0:
             #On telnet it might close before the IGNORE STATES part
-            self.opt_IgnoreStates = True
-            self.opt_RunTriggers = False
+            self.e_IgnoreStates(None)
+            self.d_RunTriggers(None)
+            time.sleep(self.sleep_sockWait) #wait a bit before restarting connection
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.log("Opening socket")
@@ -726,6 +740,11 @@ class Overwatcher():
         self.opt_RunTriggers = True
         return s
 
+    def sock_close(self, s):
+        if s is not None:
+            self.log("Closing socket")
+            s.close()
+            s = None
 
     def logNoPrint(self, *args):
         outtext = ""
