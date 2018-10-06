@@ -311,10 +311,12 @@ class Overwatcher():
                 except OSError:
                     self.log("Reopening socket")
                     self.mainSocket = self.sock_create()
+                    break #restart reading
 
                 if not x:
                     self.log("Socket closed, reopening")
                     self.mainSocket = self.sock_create()
+                    break #restart reading
 
                 try:
                     serout += x.decode('ascii')
@@ -351,8 +353,9 @@ class Overwatcher():
             try:
                 self.mainSocket.sendall(cmd.encode())
             except OSError:
-                self.log("Reopening socket for sending")
-                self.mainSocket = self.sock_create()
+                self.log("Waiting for socket to send stuff")
+                self.sleep(0.5)
+                continue
 
             self.log("SENT", repr(cmd))
             time.sleep(0.4)
