@@ -32,7 +32,7 @@ Ultra-lightweight automated testing framework for CLIs.
 ## Anatomy of a test
 The basic idea: the test defines a list of states (markers) and actions that have to be run. This list is walked on
 element by element: when a state is the next element, overwatcher waits for the marker that describes that state, 
-when an action/option is the next element, it just runs that action/option. If overwatcher is looking for one state and
+when an action/modifier is the next element, it just runs that action/modifier. If overwatcher is looking for one state and
 a different one is seen, the test fails.
 
 0. *TEST INFORMATION* This "header" contains a full test description and it is dumped in the test log, so more stuff can
