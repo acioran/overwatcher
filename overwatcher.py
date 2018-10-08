@@ -568,7 +568,7 @@ class Overwatcher():
         except KeyError:
             self.counter[state] = 1
 
-        self.log("COUNTING for \'", state, "\'...got to ", self.counter[state])
+        self.log("COUNTING for \'" + state + "\'...got to ", self.counter[state])
         #Display all counting stats everytime:
         for elem in self.counter:
             self.log("COUNT FOR", elem, "is", self.counter[elem])
@@ -583,8 +583,9 @@ class Overwatcher():
         if self.opt_RandomExec is False:
             return True
         else:
-            self.log("Random coin toss!")
-            return random.choice([True, False])
+            ret = random.choice([True, False])
+            self.log("Random coin toss showed", ret)
+            return ret
 
     def getDeviceOutput(self):
         """
