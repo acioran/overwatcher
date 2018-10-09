@@ -407,13 +407,12 @@ class Overwatcher():
                     #Run the triggers of the state
                     if self.opt_RunTriggers is True:
                         try:
-                            actions = self.triggers[current_state]
-                            for act in actions:
+                            for act in self.triggers[current_state]:
                                 if act not in self.options.keys():
                                     self.sendDeviceCmd(act)
                                 elif act not in self.critical_options:
                                     #Run the rest of the normal options, in order
-                                    self.options[opt](current_state)
+                                    self.options[act](current_state)
                         except KeyError:
                             pass
 
