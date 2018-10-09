@@ -88,7 +88,10 @@ class Overwatcher():
         last_state = self.onetime_ConfigureDevice()
 
         #Make sure the last state is passed to the test
-        self.updateDeviceState(last_state)
+        #but do not pass prompts
+        #TODO: this should be removed I think
+        if last_state not in self.prompts:
+            self.updateDeviceState(last_state)
 
         self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
@@ -357,7 +360,11 @@ class Overwatcher():
                     cmd += self.eol['noendr']
 
             try:
-                self.mainSocket.sendall(cmd.encode())
+                #Improve handling of large commands sent to the device
+                for elem in cmd.split(" "):
+                    self.mainSocket.sendall(elem.encode())
+                    self.mainSocket.send(" ".encode())
+                    time.sleep(0.05)
             except OSError:
                 self.log("Waiting for socket to send stuff")
                 self.sleep(0.5)
@@ -618,15 +625,13 @@ class Overwatcher():
 
         Returns "" if queue is closing.
         """
-        try:
-            state = self.queue_state.get(block=blockQueue)
-            self.queue_state.task_done()
-        except queue.Empty:
-            state = None
-        if state is None:
-            return ""
-        else:
-            return state
+        while True:
+            try:
+                state = self.queue_state.get(block=blockQueue)
+                self.queue_state.task_done()
+                return state
+            except queue.Empty:
+                continue
 
     def waitDevicePrompt(self):
 
