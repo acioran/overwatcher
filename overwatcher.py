@@ -367,7 +367,7 @@ class Overwatcher():
                     time.sleep(0.05)
             except OSError:
                 self.log("Waiting for socket to send stuff")
-                self.sleep(0.5)
+                time.sleep(0.5)
                 continue
 
             self.log("SENT", repr(cmd))
@@ -628,7 +628,10 @@ class Overwatcher():
             try:
                 state = self.queue_state.get(block=blockQueue)
                 self.queue_state.task_done()
-                return state
+                if state is None:
+                    continue
+                else:
+                    return state
             except queue.Empty:
                 continue
 
