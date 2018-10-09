@@ -120,6 +120,7 @@ class Overwatcher():
         self.opt_RunTriggers = True
         self.opt_IgnoreStates = False
         self.opt_RandomExec = False
+        self.opt_TimeCmd = False
 
         self.options ={  # Quick option set
                 "IGNORE_STATES" : self.e_IgnoreStates,
@@ -129,7 +130,8 @@ class Overwatcher():
                 "SLEEP_RANDOM"  : self.sleepRandom,
                 "RANDOM_START"  : self.e_RandomExecution,
                 "RANDOM_STOP"   : self.d_RandomExecution,
-                "COUNT"         : self.countTrigger
+                "COUNT"         : self.countTrigger,
+                "TIMECMD"       : self.timeCommand
                 }
 
         #What we need to run even if states are ignored and triggers disabled
@@ -573,6 +575,9 @@ class Overwatcher():
         for elem in self.counter:
             self.log("COUNT FOR", elem, "is", self.counter[elem])
 
+    def timeCommand(self, state):
+        self.opt_TimeCmd = True
+
     def sleepRandom(self, state):
         duration = random.randint(self.sleep_min, self.sleep_max)
         self.log("ZzzzZZzzzzzzZzzzz....(", duration, "seconds )....")
@@ -628,15 +633,20 @@ class Overwatcher():
         wait1_enter = self.waitPrompt_enter
         wait2_return = self.waitPrompt_return
 
+        if self.opt_TimeCmd is True:
+            startOfPromptWait = datetime.datetime.now()
+
         while True:
             if self.opt_IgnoreStates is True:
                 self.log("Ignore states is set, canceling prompt wait")
-                return
+                break
 
             state = self.getDeviceState(False)
             if state in self.prompts:
                 self.log("Found prompt!")
-                return
+                break
+            else:
+                self.updateDeviceState(state)
 
             #First thing, let's try to send a CR
             wait1_enter -=1
@@ -650,9 +660,14 @@ class Overwatcher():
             wait2_return -=1
             if wait2_return == 0:
                 self.log("NO PROMPT FOUND! TRYING TO CONTINUE...")
-                return
+                break
 
             time.sleep(0.2)
+
+        if self.opt_TimeCmd is True:
+            self.opt_TimeCmd = False
+            endOfPromptWait = datetime.datetime.now()
+            self.log("Command took", str(endOfPromptWait - startOfPromptWait))
 
     def waitDeviceState(self, state):
         while(self.getDeviceState() != state):
