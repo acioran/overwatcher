@@ -361,10 +361,12 @@ class Overwatcher():
 
             try:
                 #Improve handling of large commands sent to the device
-                for elem in cmd.split(" "):
-                    self.mainSocket.sendall(elem.encode())
-                    self.mainSocket.send(" ".encode())
-                    time.sleep(0.05)
+                if len(cmd) > 45:
+                    self.mainSocket.sendall(cmd[0:40].encode())
+                    time.sleep(0.5)
+                    self.mainSocket.sendall(cmd[40:].encode())
+                else:
+                    self.mainSocket.sendall(cmd.encode())
             except OSError:
                 self.log("Waiting for socket to send stuff")
                 time.sleep(0.5)
@@ -387,7 +389,22 @@ class Overwatcher():
                 continue
 
             for marker in self.statewatcher_markers:
-                if marker in serout:
+                match = False
+                if self.statewatcher_markers[marker] not in self.prompts:
+                    #If marker is not a prompt, just look for it in the output
+                    if marker in serout:
+                        match = True
+                else:
+                    #If the marker is a prompt, we need to make sure we don't also
+                    #consider it when it is part of a command sent to the device. So
+                    #we try to see if there is something after it.
+                    try:
+                        if len(serout.strip().split(marker)[1]) == 0:
+                            match = True
+                    except IndexError:
+                        continue
+
+                if match is True:
                     current_state = self.statewatcher_markers[marker]
 
                     self.log("FOUND", current_state, "state in", serout)
