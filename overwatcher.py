@@ -155,7 +155,7 @@ class Overwatcher():
         #Connection stuff
         self.server = server
         self.port = port
-        self.sendendr = 'noendr'
+        self.sendendr = 'endr'
 
         #Add support for infinite running tests - this can be set in setup_test
         #NOTE: timeout still occurs!
@@ -165,9 +165,9 @@ class Overwatcher():
         self.telnetTest = runAsTelnetTest
         #For telnet we need to send just a '\r', adding a dict to make things easier
         if self.telnetTest is False:
-            self.eol= { 'endr': '\r\n', 'noendr': '\n'}
+            self.eol= { 'endr': "\r\n", 'noendr': "\n"}
         else:
-            self.eol= { 'endr': '\r', 'noendr': '\r' }
+            self.eol= { 'endr': "\r", 'noendr': "\r" }
 
         #Add support for random sleep amounts - this can be set in setup_test
         self.sleep_min = 30 #seconds
@@ -313,7 +313,7 @@ class Overwatcher():
                 try:
                     x = self.mainSocket.recv(1)
                 except socket.timeout:
-                    x = b'\n'
+                    x = self.eol[self.sendendr].encode() #same line ending
                     break
                 except OSError:
                     self.log("Reopening socket")
@@ -330,7 +330,9 @@ class Overwatcher():
                 except UnicodeDecodeError:
                     pass
 
-                if x == self.eol[self.sendendr]:
+                #Doing this to make sure we match correctly everytime
+                #and to take into account the \r\n situation
+                if x == self.eol[self.sendendr][0].encode():
                     break
 
             tmp = serout.strip() #to log the device output unmodified
@@ -352,10 +354,7 @@ class Overwatcher():
             #Skip endline for y/n stuff
             #NOTE: also works for 0 len cmds for sending an CR
             if len(cmd) != 1:
-                if self.sendendr is True:
-                    cmd += self.eol['endr']
-                else:
-                    cmd += self.eol['noendr']
+                cmd += self.eol[self.sendendr]
 
             try:
                 #Improve handling of large commands sent to the device
