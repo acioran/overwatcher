@@ -119,13 +119,13 @@ class Overwatcher():
         #Various test information
         self.info = {}
 
-    def setup_option_defaults(self):
+    def setup_modifiers_defaults(self):
         self.opt_RunTriggers = True
         self.opt_IgnoreStates = False
         self.opt_RandomExec = False
         self.opt_TimeCmd = False
 
-        self.options ={  # Quick option set
+        self.modifiers ={  # Quick modifier set
                 "IGNORE_STATES" : self.e_IgnoreStates,
                 "WATCH_STATES"  : self.d_IgnoreStates,
                 "TRIGGER_START" : self.e_RunTriggers,
@@ -138,7 +138,7 @@ class Overwatcher():
                 }
 
         #What we need to run even if states are ignored and triggers disabled
-        self.critical_options = ["WATCH_STATES", "TRIGGER_START"]
+        self.critical_modifiers = ["WATCH_STATES", "TRIGGER_START"]
 
         self.retval = {   
                             "config failed":    3,
@@ -194,7 +194,7 @@ class Overwatcher():
 
         #Start with defaults
         self.setup_test_defaults()
-        self.setup_option_defaults()
+        self.setup_modifiers_defaults()
 
         #Use one main timer for all for now - note: needs default timeout value
         self.mainTimer = self.timer_startTimer(None)
@@ -409,12 +409,12 @@ class Overwatcher():
 
                     self.log("FOUND", current_state, "state in", serout)
 
-                    #Run the critical options, if any are present for the state
+                    #Run the critical modifiers, if any are present for the state
                     try:
                         actions = self.triggers[current_state]
                         for opt in actions:
-                            if opt in self.critical_options:
-                                self.options[opt](current_state)
+                            if opt in self.critical_modifiers:
+                                self.modifiers[opt](current_state)
                     except KeyError:
                         pass
 
@@ -425,11 +425,11 @@ class Overwatcher():
                     if self.opt_RunTriggers is True:
                         try:
                             for act in self.triggers[current_state]:
-                                if act not in self.options.keys():
+                                if act not in self.modifiers.keys():
                                     self.sendDeviceCmd(act)
-                                elif act not in self.critical_options:
-                                    #Run the rest of the normal options, in order
-                                    self.options[act](current_state)
+                                elif act not in self.critical_modifiers:
+                                    #Run the rest of the normal modifiers, in order
+                                    self.modifiers[act](current_state)
                         except KeyError:
                             pass
 
@@ -476,9 +476,9 @@ class Overwatcher():
             try:
                 self.log("RUNNING ACTIONS:", required_state, "=", self.actions[required_state])
                 for elem in self.actions[required_state]:
-                    #Run any options in actions
+                    #Run any modifiers in actions
                     try:
-                        self.options[elem](required_state)
+                        self.modifiers[elem](required_state)
                         continue
                     except KeyError:
                         pass
@@ -494,15 +494,15 @@ class Overwatcher():
                 pass
 
             #
-            ##  See if we need to set any options
+            ##  See if we have any modifiers
             ###
             try:
-                self.log("FOUND OPTION:", self.options[required_state], "in state", required_state)
+                self.log("FOUND MODIFIER:", self.modifiers[required_state], "in state", required_state)
 
                 #Needed for sleep option
                 self.mainTimer = self.timer_stopTimer(self.mainTimer)
 
-                self.options[required_state](required_state)
+                self.modifiers[required_state](required_state)
                 test_idx += 1
 
                 #Restart timer
@@ -531,7 +531,7 @@ class Overwatcher():
                 ignore = False
                 #TODO: nicer version of this! :P
                 try:
-                    for opt in self.options.keys():
+                    for opt in self.modifiers.keys():
                         for trig in self.triggers[current_state]:
                             if opt == trig:
                                 self.log("IGNORING STATE=", current_state)
