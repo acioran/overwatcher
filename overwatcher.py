@@ -155,7 +155,7 @@ class Overwatcher():
         #Connection stuff
         self.server = server
         self.port = port
-        self.sendendr = False
+        self.sendendr = 'noendr'
 
         #Add support for infinite running tests - this can be set in setup_test
         #NOTE: timeout still occurs!
@@ -301,12 +301,10 @@ class Overwatcher():
     """
     def thread_SerialRead(self):
         """
-        Receiver thread. Parses serial out and forms things in sentences.
-
-        TODO: re-write this. Very old code and it can be done way better 
+        Receiver thread. 
+        Job: parses serial out and forms things in sentences. Does not interpret the information, except the line
+        endings to form lines.
         """
-        x=b''
-        eol = [ b'\n', b'\r' ] 
         while self.run["recv"] is True:
             serout = ""
             while self.run["recv"] is True:
@@ -332,13 +330,13 @@ class Overwatcher():
                 except UnicodeDecodeError:
                     pass
 
-                if x in eol:
+                if x == self.eol[self.sendendr]:
                     break
 
-            if(len(serout.strip()) != 0):
-                self.log("DEV", serout)
-                serout = serout.strip()
-                self.queue_serread.put(serout)
+            tmp = serout.strip() #to log the device output unmodified
+            if(len(tmp) != 0):
+                self.log("DEV", repr(serout))
+                self.queue_serread.put(tmp)
 
         self.sock_close(self.mainSocket)
 
