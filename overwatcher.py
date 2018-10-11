@@ -280,7 +280,7 @@ class Overwatcher():
                 self.log("RUNNING ACTIONS:", req_state, "=", self.actions[req_state])
                 for elem in self.actions[req_state]:
                     self.sendDeviceCmd(elem)
-                    self.waitDevicePrompt()
+                    self.waitDevicePrompt(elem)
                 conf_idx += 1
                 continue
             except KeyError:
@@ -371,7 +371,6 @@ class Overwatcher():
                     #Improve handling of large commands sent to the device
                     if lcmd > self.largeCommand:
                         lim = int((lcmd/2)-1)
-                        print(lim)
                         self.mainSocket.sendall(cmd[0:lim].encode())
                         time.sleep(0.25)
                         self.mainSocket.sendall(cmd[lim:].encode())
@@ -484,20 +483,19 @@ class Overwatcher():
             ##  See if we need to run some actions
             ###
             try:
-                self.log("RUNNING ACTIONS:", required_state, "=", self.actions[required_state])
-                for elem in self.actions[required_state]:
-                    #Run any modifiers in actions
-                    try:
-                        self.modifiers[elem](required_state)
-                        continue
-                    except KeyError:
-                        pass
-                    
-                    #Handle RANDOM actions
-                    if self.tossCoin() is True:
+                #Handle RANDOM actions
+                if self.tossCoin() is True:
+                    self.log("RUNNING ACTIONS:", required_state, "=", self.actions[required_state])
+                    for elem in self.actions[required_state]:
+                        #Run any modifiers in actions
+                        try:
+                            self.modifiers[elem](required_state)
+                            continue
+                        except KeyError:
+                            pass
                         self.sendDeviceCmd(elem)
                         self.waitDevicePrompt(elem)
-                test_idx += 1
+                    test_idx += 1
                 continue
             except KeyError:
                 pass
@@ -606,6 +604,7 @@ class Overwatcher():
             self.log("COUNT FOR", elem, "is", self.counter[elem])
 
     def timeCommand(self, state):
+        self.log("TIMING NEXT COMMAND")
         self.opt_TimeCmd = True
 
     def sleepRandom(self, state):
