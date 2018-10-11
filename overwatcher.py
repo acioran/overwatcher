@@ -105,6 +105,8 @@ class Overwatcher():
 
         self.largeCommand = 50 #what command should be sent into parts
 
+        self.strictStates = True #by default, enforce
+
         self.config_seq = []
         self.test_seq = []
 
@@ -494,8 +496,7 @@ class Overwatcher():
                     #Handle RANDOM actions
                     if self.tossCoin() is True:
                         self.sendDeviceCmd(elem)
-                        self.log("Waiting for prompt for elem", elem)
-                        self.waitDevicePrompt()
+                        self.waitDevicePrompt(elem)
                 test_idx += 1
                 continue
             except KeyError:
@@ -531,26 +532,24 @@ class Overwatcher():
                 self.log("MOVED TO STATE=", required_state)
                 test_idx += 1
 
-                #TIMEOUT until next state
-                self.mainTimer = self.timer_startTimer(self.mainTimer)
 
             # State changed and it isn't what we expect
             else: 
                 ignore = False
-                #TODO: nicer version of this! :P
                 try:
-                    for opt in self.modifiers.keys():
-                        for trig in self.triggers[current_state]:
-                            if opt == trig:
-                                self.log("IGNORING STATE=", current_state)
-                                ignore = True
-                                break
+                    if self.triggers[current_state][0] == "NOTSTRICT":
+                        ignore = True
                 except KeyError:
                     pass
 
-                if ignore is False:
+                if self.strictStates is False or ignore is True:
+                    self.log("STATE", current_state, "unexpected, but welcomed")
+                elif ignore is False:
                     self.log("FOUND=", current_state, ", BUT WAS LOOKING FOR:", required_state)
                     self.mytest_failed()
+
+            #TIMEOUT until next state
+            self.mainTimer = self.timer_startTimer(self.mainTimer)
 
         self.mytest_ok()
 
@@ -660,7 +659,8 @@ class Overwatcher():
             except queue.Empty:
                 continue
 
-    def waitDevicePrompt(self):
+    def waitDevicePrompt(self, cmd):
+        self.log("Waiting for prompt for elem", cmd)
 
         wait1_enter = self.waitPrompt_enter
         wait2_return = self.waitPrompt_return
@@ -668,11 +668,8 @@ class Overwatcher():
         if self.opt_TimeCmd is True:
             startOfPromptWait = datetime.datetime.now()
 
-        while True:
-            if self.opt_IgnoreStates is True:
-                self.log("Ignore states is set, canceling prompt wait")
-                break
-
+        while self.opt_IgnoreStates is False:
+            #Look just for prompts, put everything else back
             state = self.getDeviceState(False)
             if state in self.prompts:
                 self.log("Found prompt!")
@@ -699,7 +696,7 @@ class Overwatcher():
         if self.opt_TimeCmd is True:
             self.opt_TimeCmd = False
             endOfPromptWait = datetime.datetime.now()
-            self.log("Command took", str(endOfPromptWait - startOfPromptWait))
+            self.log("Command", cmd, "took", str(endOfPromptWait - startOfPromptWait))
 
     def updateDeviceState(self, state):
         """
