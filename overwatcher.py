@@ -147,7 +147,7 @@ class Overwatcher():
                             "ok":               0
                       }
 
-    def __init__(self, test, server='169.168.56.254', port=23200, runAsTelnetTest=False):
+    def __init__(self, test, server='169.168.56.254', port=23200, runAsTelnetTest=False, endr=False):
         """
         Class init. KISS 
         NOTE: keeping default for backwards compatibility...for now
@@ -155,7 +155,10 @@ class Overwatcher():
         #Connection stuff
         self.server = server
         self.port = port
-        self.sendendr = 'endr'
+        if endr is False:
+            self.sendendr = 'noendr'
+        else:
+            self.sendendr = 'endr'
 
         #Add support for infinite running tests - this can be set in setup_test
         #NOTE: timeout still occurs!
@@ -877,9 +880,11 @@ if __name__ == "__main__":
             type=int, default=3000)
     parser.add_argument('--telnet', help='Run test over telnet to device',
             action='store_true')
+    parser.add_argument('--endr', help='Send a \r\n instead of just \n',
+            action='store_true')
 
     args = parser.parse_args()
 
-    test = Overwatcher(args.test, server=args.server, port=args.port, runAsTelnetTest=args.telnet)
+    test = Overwatcher(args.test, server=args.server, port=args.port, runAsTelnetTest=args.telnet, endr=args.endr)
 
 
