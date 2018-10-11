@@ -391,7 +391,6 @@ class Overwatcher():
         """
         while(self.run["state_watcher"] is True):
             serout = self.getDeviceOutput()
-
             
             #Speed things up a bit
             if serout == "":
@@ -701,10 +700,6 @@ class Overwatcher():
             self.opt_TimeCmd = False
             endOfPromptWait = datetime.datetime.now()
             self.log("Command took", str(endOfPromptWait - startOfPromptWait))
-
-    def waitDeviceState(self, state):
-        while(self.getDeviceState() != state):
-            time.sleep(0.1)
 
     def updateDeviceState(self, state):
         """
