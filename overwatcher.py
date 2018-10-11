@@ -103,6 +103,8 @@ class Overwatcher():
 
         self.timeout = 300.0 #seconds
 
+        self.largeCommand = 50 #what command should be sent into parts
+
         self.config_seq = []
         self.test_seq = []
 
@@ -347,33 +349,40 @@ class Overwatcher():
 
     def thread_SerialWrite(self):
         """
-        Sender thread. Sends commands to the device.
+        Sender thread. 
+        JOB: Sends commands to the device. Breaks large commands into pieces to not have problems with missing parts.
         """
         while self.run["send"] is True:
             cmd = self.queue_serwrite.get(block=True)
             if cmd is None:
                 break
+            else:
+                lcmd = len(cmd)
 
             #Skip endline for y/n stuff
             #NOTE: also works for 0 len cmds for sending an CR
-            if len(cmd) != 1:
+            if lcmd != 1:
                 cmd += self.eol[self.sendendr]
 
-            try:
-                #Improve handling of large commands sent to the device
-                if len(cmd) > 45:
-                    self.mainSocket.sendall(cmd[0:40].encode())
-                    time.sleep(0.5)
-                    self.mainSocket.sendall(cmd[40:].encode())
-                else:
-                    self.mainSocket.sendall(cmd.encode())
-            except OSError:
-                self.log("Waiting for socket to send stuff")
-                time.sleep(0.5)
-                continue
+            while True:
+                try:
+                    #Improve handling of large commands sent to the device
+                    if lcmd > self.largeCommand:
+                        lim = int((lcmd/2)-1)
+                        print(lim)
+                        self.mainSocket.sendall(cmd[0:lim].encode())
+                        time.sleep(0.25)
+                        self.mainSocket.sendall(cmd[lim:].encode())
+                    else:
+                        self.mainSocket.sendall(cmd.encode())
+                    break #Exit loop
+                except OSError:
+                    #Loop until socket is back
+                    self.log("Waiting for socket to send stuff")
+                    time.sleep(1)
+                    continue
 
             self.log("SENT", repr(cmd))
-            time.sleep(0.4)
         
 
     def thread_StateWatcher(self): 
