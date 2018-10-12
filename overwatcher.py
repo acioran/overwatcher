@@ -1,4 +1,17 @@
 #!/usr/bin/python3
+"""
+REVISION
+--------
+Added revisions for overwatcher. This has nothing to do with actual versions of the code and is used to track major
+changes to force rechecks of old tests and maybe keeping them up to date as new modifiers and options appear. New
+revisions are kinda subjective, but for example new modifiers should mean a new revision (maybe the old tests can be
+simplified with these) or big changes to the code flow.
+
+Revision history (latest on top):
+    - 20181012 : Added new modifiers - NOPRWAIT and NOTSTRICT which help with reboot parts. Old tests should be updated.
+      Also prompt waits block now and the timeout part is used to recover. Major changes to read and write parts.
+"""
+revision = 20181012
 
 import socket
 import random
@@ -820,6 +833,23 @@ class Overwatcher():
         print(str(datetime.datetime.now()), self.logNoPrint("+++>", *args))
 
     def print_test(self):
+        ## First let's check the test. This is here to also handle the case
+        ## where the setup function is overwritten. Added global revision to
+        ## see it better at start of file.
+        global revision
+        ask = False
+        try:
+            if self.info['overwatcher revision required'] != revision:
+                print("\nOverwatcher revision mismatch! Please check the test!\n")
+                ask = True
+        except KeyError:
+            print("\nNo revision information in test. Please add info!\n")
+            ask = True
+
+        if ask is True:
+            input("\n\nTest should be checked before running!")
+            input("Press CTRL-C to stop or ENTER to continue!")
+
         self.file_test.write(self.name + "\n\n")
         self.file_test.write(self.full_name + "\n\n")
         for elem in self.info:
