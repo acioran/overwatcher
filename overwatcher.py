@@ -62,7 +62,7 @@ class Overwatcher():
             self.log("GOT A TIMEOUT, giving it another try...we have", self.counter["test_timeouts"], "left")
             self.mainTimer = self.timer_startTimer(self.mainTimer)
             if self.telnetTest is False:
-                #On telnet no need to send a CR
+                #On telnet this does not help
                 self.sendDeviceCmd("") #Send a CR
 
 
@@ -123,6 +123,7 @@ class Overwatcher():
         self.opt_IgnoreStates = False
         self.opt_RandomExec = False
         self.opt_TimeCmd = False
+        self.mod_PromptWait = True
 
         self.modifiers ={  # Quick modifier set
                 "IGNORE_STATES" : self.e_IgnoreStates,
@@ -133,7 +134,9 @@ class Overwatcher():
                 "RANDOM_START"  : self.e_RandomExecution,
                 "RANDOM_STOP"   : self.d_RandomExecution,
                 "COUNT"         : self.countTrigger,
-                "TIMECMD"       : self.timeCommand
+                "TIMECMD"       : self.timeCommand,
+                "NOTSTRICT"     : self.notStrict,
+                "NOPRWAIT"      : self.d_PromptWait
                 }
 
         #What we need to run even if states are ignored and triggers disabled
@@ -183,9 +186,6 @@ class Overwatcher():
         self.counter = {}
         self.counter["test_loop"] = 1
         self.counter["test_timeouts"] = self.test_max_timeouts
-
-        self.waitPrompt_enter = 1000
-        self.waitPrompt_return = 2000
 
         self.queue_state = queue.Queue() 
         self.queue_result = queue.Queue()
@@ -491,6 +491,7 @@ class Overwatcher():
                         self.sendDeviceCmd(elem)
                         self.waitDevicePrompt(elem)
                     test_idx += 1
+                    self.e_PromptWait(required_state)
                 continue
             except KeyError:
                 pass
@@ -587,6 +588,15 @@ class Overwatcher():
         self.log("STOP RANDOM EXECUTION")
         self.opt_RandomExec = False
 
+    def e_PromptWait(self, state):
+        if self.mod_PromptWait is not True:
+            self.log("WAITING FOR PROMPT AGAIN!")
+            self.mod_PromptWait = True
+
+    def d_PromptWait(self, state):
+        self.log("SENDING COMMANDS WITHOUT PROMPT WAIT!")
+        self.mod_PromptWait = False
+
     def countTrigger(self, state):
         try:
             self.counter[state] += 1
@@ -601,6 +611,9 @@ class Overwatcher():
     def timeCommand(self, state):
         self.log("TIMING NEXT COMMAND")
         self.opt_TimeCmd = True
+
+    def notStrict(self, state):
+        self.log("State", state, "treated as NOT STRICT!")
 
     def sleepRandom(self, state):
         duration = random.randint(self.sleep_min, self.sleep_max)
@@ -654,11 +667,20 @@ class Overwatcher():
                 continue
 
     def waitDevicePrompt(self, cmd):
-        self.log("Waiting for prompt for elem", cmd)
+        """
+        Wait until we see something defined as a device prompt. All other states 
+        are ignored and put back in the queue. Prompts are consumed.
+        This now blocks until it sees a prompt. If the timeout is triggered we 
+        try a recovery and wait again, which should also help this. If it does 
+        not, something bad happened.
+        """
+        if self.mod_PromptWait is True:
+            self.log("Waiting for prompt for elem", cmd)
+        else:
+            time.sleep(1)
+            return
 
-        wait1_enter = self.waitPrompt_enter
-        wait2_return = self.waitPrompt_return
-
+        #Here we time the command from start
         if self.opt_TimeCmd is True:
             startOfPromptWait = datetime.datetime.now()
 
@@ -671,26 +693,13 @@ class Overwatcher():
             else:
                 self.updateDeviceState(state)
 
-            #First thing, let's try to send a CR
-            wait1_enter -=1
-            if wait1_enter == 0:
-                self.sendDeviceCmd("")
-                self.log("NO PROMPT FOUND! Trying a CR...")
-                wait1_enter = -1 #But only once
-
-            #If that does not work, let's try to continue
-            #otherwise we will get a timeout anyway
-            wait2_return -=1
-            if wait2_return == 0:
-                self.log("NO PROMPT FOUND! TRYING TO CONTINUE...")
-                break
-
             time.sleep(0.2)
 
+        #Until the prompt wait is over
         if self.opt_TimeCmd is True:
             self.opt_TimeCmd = False
             endOfPromptWait = datetime.datetime.now()
-            self.log("Command", cmd, "took", str(endOfPromptWait - startOfPromptWait))
+            self.log("Command", repr(cmd), "took", str(endOfPromptWait - startOfPromptWait))
 
     def updateDeviceState(self, state):
         """
