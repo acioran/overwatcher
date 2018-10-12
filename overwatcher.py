@@ -351,6 +351,7 @@ class Overwatcher():
         """
         while self.run["send"] is True:
             cmd = self.queue_serwrite.get(block=True)
+            cmd = str(cmd) #in case someone writes numbers in yml
             if cmd is None:
                 break
             else:
