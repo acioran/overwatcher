@@ -87,11 +87,6 @@ class Overwatcher():
 
         last_state = self.onetime_ConfigureDevice()
 
-        #Make sure the last state is passed to the test
-        #but do not pass prompts
-        #TODO: this should be removed I think
-        if last_state not in self.prompts:
-            self.updateDeviceState(last_state)
 
         self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
