@@ -802,7 +802,7 @@ class Overwatcher():
                 self.log("Still waiting...")
                 pass
         s.setblocking(0)
-        s.settimeout(2) #seconds
+        s.settimeout(1) #seconds
         self.log("Socket online") 
         
         #We might have missed something on serial
