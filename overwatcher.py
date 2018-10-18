@@ -756,6 +756,10 @@ class Overwatcher():
         """
         Starts or restarts a timer using the class options (timeout and mytest_timeout)
         """
+        if self.timeout == 0:
+            self.log("Test has no timeout!")
+            return None
+
         try:
             if timer is not None:
                 timer.cancel()
