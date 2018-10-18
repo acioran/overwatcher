@@ -93,6 +93,13 @@ stuff).
   displayed once one is incremented (increases the log file, but handels infinte tests
   easier). NOTE: there are two permanent counts in each test: the number of loops run (if it
   is infinite) and how many timeouts are left per loop.
+- NOPRWAIT - Following commands are sent to the device without waiting for a prompt. It only applies to the commands in
+  the current action. When all the commands left in the action are executed, the prompt wait returns for the next
+  actions.
+- NOTSTRICT - special modifier, needs to be the first in a trigger for that state. It causes overwatcher to ignore that
+  state in a test; if the state is seen, but not expected, the test continues and does not exit. This is not affected
+  by the strictStates option. Use with caution, as ignoring this can lead to false positives, but it is useful in tests
+  that need to run a long time, or for using other modifiers with some states.
 
 ## Configurable test options
 These are just parameters that control the inner workings of the test:
@@ -102,3 +109,6 @@ These are just parameters that control the inner workings of the test:
   The configuration is not run again.
 - timeout: how long to wait when looking for a state. NOTE: this is not influenced by the prompt or by running commands.
 - test\_max\_timeouts - how many timeouts can occur per test loop
+- strictStates: when this is set to FALSE overwatcher ignore the order in which the states come in a test, so if a state
+  comes when it is not expected, the test will not fail but continue executing. This is useful for long running tests as
+  it prevents unwanted stops. For tests that need a pass/fail this should be left to the default state - TRUE.
