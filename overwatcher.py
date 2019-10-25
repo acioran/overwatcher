@@ -94,12 +94,7 @@ class Overwatcher():
         """
         self.log("\n\/ \/ \/ \/ STARTED CONFIG!\/ \/ \/ \/\n") 
         
-        if self.telnetTest is False:
-            #On serial, send CR to see where we are
-            self.sendDeviceCmd("")
-
         last_state = self.onetime_ConfigureDevice()
-
 
         self.log("\n/\ /\ /\ /\ ENDED CONFIG!/\ /\ /\ /\ \n\n") 
 
@@ -794,20 +789,20 @@ class Overwatcher():
             self.d_RunTriggers(None)
             time.sleep(self.sleep_sockWait) #wait a bit before restarting connection
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.log("Opening socket")
         connected = False
-        while connected is False:
-            try:
-                s.connect((self.server, self.port))
-                connected = True
-            except OSError:
-                time.sleep(5)
-                self.log("Still waiting...")
-                pass
+        while not connected: 
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((self.server, self.port))
+            time.sleep(2)
+            if self.telnetTest is False:
+                #on serial, send an endl when creating the socket
+                s.sendall(self.eol[self.sendendr].encode())
+            connected = s.recv(1)
+
+        self.log("Socket online") 
         s.setblocking(0)
         s.settimeout(1) #seconds
-        self.log("Socket online") 
         
         #We might have missed something on serial
         #On telnet this is important
