@@ -100,6 +100,9 @@ stuff).
   state in a test; if the state is seen, but not expected, the test continues and does not exit. This is not affected
   by the strictStates option. Use with caution, as ignoring this can lead to false positives, but it is useful in tests
   that need to run a long time, or for using other modifiers with some states.
+- LOCAL - All commands after this modifier are ran on the local PC. When the command set is finished, it 
+  automatically reverts to running commands on the device. No special handling is required, the modifier can be used 
+  anywhere in a command, just there is no way to disable this.
 
 ## Configurable test options
 These are just parameters that control the inner workings of the test:

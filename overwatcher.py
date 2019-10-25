@@ -8,6 +8,10 @@ revisions are kinda subjective, but for example new modifiers should mean a new 
 simplified with these) or big changes to the code flow.
 
 Revision history (latest on top):
+    - 20191025 (REVISION NOT CHANGED) - added posibility to run commands on the local PC as part of the test. This is
+    done with a new modified LOCAL. All commands after this modifier are ran on the local PC and when the command set is
+    finished, it automatically reverts to running commands on the device. Revision is not changed because this does not
+    impact older test, it just improves the newer ones.
     - 20181012 : Added new modifiers - NOPRWAIT and NOTSTRICT which help with reboot parts. Old tests should be updated.
       Also prompt waits block now and the timeout part is used to recover. Major changes to read and write parts.
 """
@@ -22,6 +26,7 @@ import threading
 import argparse
 import yaml
 import os
+import subprocess
 
 
 class Overwatcher():
@@ -132,6 +137,7 @@ class Overwatcher():
         self.opt_RandomExec = False
         self.opt_TimeCmd = False
         self.mod_PromptWait = True
+        self.mod_RunLocal = False
 
         self.modifiers ={  # Quick modifier set
                 "IGNORE_STATES" : self.e_IgnoreStates,
@@ -144,7 +150,8 @@ class Overwatcher():
                 "COUNT"         : self.countTrigger,
                 "TIMECMD"       : self.timeCommand,
                 "NOTSTRICT"     : self.notStrict,
-                "NOPRWAIT"      : self.d_PromptWait
+                "NOPRWAIT"      : self.d_PromptWait,
+                "LOCAL"         : self.e_runLocal
                 }
 
         #What we need to run even if states are ignored and triggers disabled
@@ -497,10 +504,16 @@ class Overwatcher():
                             continue
                         except KeyError:
                             pass
-                        self.sendDeviceCmd(elem)
-                        self.waitDevicePrompt(elem)
+                        if self.mod_RunLocal is False:
+                            self.sendDeviceCmd(elem)
+                            self.waitDevicePrompt(elem)
+                        else:
+                            self.runLocalCommand(elem)
                     test_idx += 1
+
+                    # Revert back to defaults
                     self.e_PromptWait(required_state)
+                    self.d_runLocal(required_state)
                 continue
             except KeyError:
                 pass
@@ -605,6 +618,19 @@ class Overwatcher():
     def d_PromptWait(self, state):
         self.log("SENDING COMMANDS WITHOUT PROMPT WAIT!")
         self.mod_PromptWait = False
+
+    def e_runLocal(self, state):
+        self.log("RUNNING ON LOCAL PC!")
+        self.mod_RunLocal = True
+
+    def d_runLocal(self, state):
+        self.log("RUNNING ON DEVICE")
+        self.mod_RunLocal = False
+
+    def runLocalCommand(self, command):
+        res = subprocess.call(command, shell=True)
+        #TODO: retain full command output
+        self.log("Command" + command + " return status " + str(res))
 
     def countTrigger(self, state):
         try:
